@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -64,10 +63,26 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
 .badge { display: inline-flex; align-items: center; font-size: 11px; padding: 3px 10px; border-radius: 99px; }
 .badge-green { background: var(--green-bg); color: var(--green); }
 .badge-red { background: var(--red-bg); color: var(--red); }
+/* טופס הזנה */
+.add-btn { position: fixed; bottom: 24px; left: 24px; width: 52px; height: 52px; border-radius: 50%; background: var(--text); color: #fff; border: none; font-size: 26px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.18); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: flex-end; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 480px; }
+.modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: 12px; color: var(--text3); margin-bottom: 4px; }
+.form-row input, .form-row select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; background: var(--surface2); color: var(--text); }
+.form-row input:focus, .form-row select:focus { outline: none; border-color: var(--text); }
+.form-actions { display: flex; gap: 10px; margin-top: 16px; }
+.btn-primary { flex: 1; padding: 12px; background: var(--text); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; }
+.btn-cancel { padding: 12px 20px; background: var(--surface2); color: var(--text2); border: none; border-radius: var(--radius-sm); font-size: 15px; cursor: pointer; }
+.submit-msg { font-size: 13px; text-align: center; padding: 8px; border-radius: var(--radius-sm); margin-top: 8px; display: none; }
+.submit-msg.ok { background: var(--green-bg); color: var(--green); display: block; }
+.submit-msg.err { background: var(--red-bg); color: var(--red); display: block; }
 @media (max-width: 480px) {
   .header { padding: 12px 16px; }
   .month-selector { padding: 12px 16px 0; }
-  .main { padding: 12px 16px 40px; }
+  .main { padding: 12px 16px 80px; }
   .metric .m-value { font-size: 17px; }
   .day-saving { display: none; }
 }
@@ -88,12 +103,54 @@ body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg)
   <div class="loading">טוען נתונים מהגיליון...</div>
 </div>
  
+<!-- כפתור + -->
+<button class="add-btn" onclick="openModal()" title="הוסף הוצאה">+</button>
+ 
+<!-- מודל הזנה -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h3>הוסף הוצאה</h3>
+    <div class="form-row">
+      <label>קטגוריה</label>
+      <select id="f-cat">
+        <option value="אוכל ושתייה">אוכל ושתייה</option>
+        <option value="תחבורה">תחבורה</option>
+        <option value="שונות יומי">שונות יומי</option>
+        <option value="בילויים וחברה">בילויים וחברה</option>
+        <option value="קניות">קניות</option>
+        <option value="מיסים וחובות">מיסים וחובות</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>תיאור (אופציונלי)</label>
+      <input type="text" id="f-desc" placeholder="לדוגמה: ארוחת צהריים">
+    </div>
+    <div class="form-row">
+      <label>סכום</label>
+      <input type="number" id="f-amount" placeholder="0" inputmode="decimal">
+    </div>
+    <div class="form-row">
+      <label>מטבע</label>
+      <select id="f-currency">
+        <option value="THB">฿ באט</option>
+        <option value="ILS">₪ שקל</option>
+        <option value="USD">$ דולר</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeModal()">ביטול</button>
+      <button class="btn-primary" onclick="submitExpense()">הוסף הוצאה</button>
+    </div>
+    <div class="submit-msg" id="submit-msg"></div>
+  </div>
+</div>
+ 
 <script>
-const SHEET_ID = '1BZYgLZE6fLV3nZW0yd3ea7mU5FtPflN0Wbv8IJf61xw';
-const API_KEY  = 'AIzaSyCipZ-FbAaLYHaDMiKeNpqmVz7AI7QwrQg';
+const SHEET_ID  = '1BZYgLZE6fLV3nZW0yd3ea7mU5FtPflN0Wbv8IJf61xw';
+const API_KEY   = 'AIzaSyCipZ-FbAaLYHaDMiKeNpqmVz7AI7QwrQg';
+const WEBHOOK   = 'https://script.google.com/macros/s/AKfycbwz2BW_xN8dHgc-_DLLEBoOmLP3FLnqHVw7lFMyWMZLJVV8tJ71iL6VQVqcD8I-YhI/exec';
 const DAILY_BUDGET = 1300;
  
-// שמות הטאבים בגיליון — חייבים להתאים בדיוק
 const MONTHS = [
   'מאי 2026','יוני 2026','יולי 2026','אוגוסט 2026',
   'ספטמבר 2026','אוקטובר 2026','נובמבר 2026','דצמבר 2026',
@@ -101,48 +158,41 @@ const MONTHS = [
 ];
  
 const FIXED = [
-  { name: 'מקבוק אייר M4',           amount: 212,  tag: 'tag-device',    label: 'מכשיר'   },
-  { name: 'אייפון 17 פרו',            amount: 279,  tag: 'tag-device',    label: 'מכשיר'   },
-  { name: 'אחסון ענן',                amount: 39,   tag: 'tag-media',     label: 'מדיה'    },
-  { name: 'סלולר',                    amount: 26,   tag: 'tag-media',     label: 'מדיה'    },
-  { name: 'מידג׳ורני',               amount: 27,   tag: 'tag-media',     label: 'מדיה'    },
-  { name: 'צ׳אט ג׳יפיטי',           amount: 67,   tag: 'tag-media',     label: 'מדיה'    },
-  { name: 'קלוד',                     amount: 58,   tag: 'tag-media',     label: 'מדיה'    },
-  { name: 'ספוטיפיי',                 amount: 23,   tag: 'tag-media',     label: 'מדיה'    },
-  { name: 'שכירות אופנוע',            amount: 492,  tag: 'tag-transport', label: 'תחבורה'  },
-  { name: 'ביטוח לאומי שוטף',         amount: 959,  tag: 'tag-tax',       label: 'מיסים'   },
-  { name: 'החזר חוב ביטוח לאומי 2024',amount: 2100, tag: 'tag-debt',      label: 'חוב', untilMonth: 11 },
-  { name: 'החזר הלוואה מס הכנסה',     amount: 1100, tag: 'tag-debt',      label: 'חוב'     },
-  { name: 'קרן השתלמות',              amount: 1000, tag: 'tag-save',      label: 'חיסכון'  },
-  { name: 'קרן פנסיה',                amount: 1000, tag: 'tag-save',      label: 'חיסכון'  },
-  { name: 'מס הכנסה',                 amount: 624,  tag: 'tag-tax',       label: 'מיסים'   },
+  { name: 'מקבוק אייר M4',            amount: 212,  tag: 'tag-device',    label: 'מכשיר'  },
+  { name: 'אייפון 17 פרו',             amount: 279,  tag: 'tag-device',    label: 'מכשיר'  },
+  { name: 'אחסון ענן',                 amount: 39,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'סלולר',                     amount: 26,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'מידג׳ורני',                amount: 27,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'צ׳אט ג׳יפיטי',            amount: 67,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'קלוד',                      amount: 58,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'ספוטיפיי',                  amount: 23,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'שכירות אופנוע',             amount: 492,  tag: 'tag-transport', label: 'תחבורה' },
+  { name: 'ביטוח לאומי שוטף',          amount: 959,  tag: 'tag-tax',       label: 'מיסים'  },
+  { name: 'החזר חוב ביטוח לאומי 2024', amount: 2100, tag: 'tag-debt',      label: 'חוב', untilIdx: 11 },
+  { name: 'החזר הלוואה מס הכנסה',      amount: 1100, tag: 'tag-debt',      label: 'חוב'    },
+  { name: 'קרן השתלמות',               amount: 1000, tag: 'tag-save',      label: 'חיסכון' },
+  { name: 'קרן פנסיה',                 amount: 1000, tag: 'tag-save',      label: 'חיסכון' },
+  { name: 'מס הכנסה',                  amount: 624,  tag: 'tag-tax',       label: 'מיסים'  },
 ];
  
-// החזר חוב ביטוח לאומי פעיל רק עד מאי 27 (אינדקס 11 ב-MONTHS)
-function fixedForMonth(monthIdx) {
-  return FIXED.filter(e => {
-    if (e.untilMonth !== undefined && monthIdx > e.untilMonth) return false;
-    return true;
-  });
+function fixedForMonth(idx) {
+  return FIXED.filter(e => e.untilIdx === undefined || idx <= e.untilIdx);
 }
  
 let cache = {};
  
-async function fetchSheet(tabName) {
-  if (cache[tabName]) return cache[tabName];
-  const url = 'https://sheets.googleapis.com/v4/spreadsheets/'
-    + SHEET_ID + '/values/'
-    + encodeURIComponent(tabName)
-    + '?key=' + API_KEY;
+async function fetchSheet(tab) {
+  if (cache[tab]) return cache[tab];
+  const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID
+    + '/values/' + encodeURIComponent(tab) + '?key=' + API_KEY;
   const res = await fetch(url);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const msg = (err.error && err.error.message) || ('HTTP ' + res.status);
-    throw new Error(msg);
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e.error && e.error.message) || 'HTTP ' + res.status);
   }
-  const data = await res.json();
-  cache[tabName] = data.values || [];
-  return cache[tabName];
+  const d = await res.json();
+  cache[tab] = d.values || [];
+  return cache[tab];
 }
  
 function parseNum(v) {
@@ -153,81 +203,101 @@ function parseNum(v) {
  
 function fmt(n) { return Math.round(n).toLocaleString('he-IL'); }
  
-function processRows(rows) {
-  const days = {};
+function toDate(dateStr) {
+  // פורמט: DD/MM/YY או DD/MM/YYYY
+  const p = dateStr.split('/').map(Number);
+  const y = p[2] < 100 ? 2000 + p[2] : p[2];
+  return new Date(y, p[1] - 1, p[0]);
+}
  
-  // מוצא את שורת הכותרת (מכילה "תאריך")
+// ===== לב הפתרון: איגוד 5 שורות לכל יום =====
+function processRows(rows) {
+  // מוצא שורת כותרת
   let hdr = -1;
   for (let i = 0; i < rows.length; i++) {
     if (rows[i].some(c => String(c).trim() === 'תאריך')) { hdr = i; break; }
   }
   if (hdr === -1) return [];
  
-  // מזהה עמודות לפי כותרת
   const h = rows[hdr];
-  const COL = {
-    rowNum:   h.findIndex(c => String(c).trim() === '#'),
-    day:      h.findIndex(c => String(c).trim() === 'יום'),
-    date:     h.findIndex(c => String(c).trim() === 'תאריך'),
-    cat:      h.findIndex(c => String(c).trim() === 'קטגוריה'),
-    desc:     h.findIndex(c => String(c).trim() === 'פירוט / תיאור' || String(c).trim() === 'פירוט'),
-    amount:   h.findIndex(c => String(c).trim() === 'סכום'),
-    thb:      h.findIndex(c => String(c).includes('฿') && String(c).includes('שווי')),
+  // זיהוי עמודות
+  const ci = name => h.findIndex(c => String(c).trim() === name);
+  const C = {
+    num:    ci('#'),
+    day:    ci('יום'),
+    date:   ci('תאריך'),
+    cat:    ci('קטגוריה'),
+    desc:   h.findIndex(c => String(c).includes('פירוט')),
+    amount: ci('סכום'),
+    curr:   h.findIndex(c => String(c).trim() === 'מטבע' || String(c).includes('מטבע')),
+    ils:    h.findIndex(c => String(c).includes('₪') && String(c).includes('שווי')),
+    thb:    h.findIndex(c => String(c).includes('฿') && String(c).includes('שווי')),
   };
+  // fallback
+  if (C.date   < 0) C.date   = 2;
+  if (C.day    < 0) C.day    = 1;
+  if (C.cat    < 0) C.cat    = 3;
+  if (C.desc   < 0) C.desc   = 4;
+  if (C.amount < 0) C.amount = 5;
+  if (C.thb    < 0) C.thb    = 9;
  
-  // fallback לעמודות לפי מיקום קבוע אם לא נמצא לפי שם
-  if (COL.date  === -1) COL.date   = 2;
-  if (COL.day   === -1) COL.day    = 1;
-  if (COL.cat   === -1) COL.cat    = 3;
-  if (COL.desc  === -1) COL.desc   = 4;
-  if (COL.amount=== -1) COL.amount = 5;
-  if (COL.thb   === -1) COL.thb    = 9;
+  const days = {};
+  let currentDate = null;
+  let currentDay  = '';
  
   for (let i = hdr + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.length < 3) continue;
  
-    const date = String(r[COL.date] || '').trim();
-    if (!/\d{2}\/\d{2}\/\d{2}/.test(date)) continue;
- 
-    if (!days[date]) {
-      days[date] = { date, dayName: r[COL.day] || '', entries: [], total: 0 };
+    // שורה עם תאריך — עדכון יום נוכחי
+    const dateCell = String(r[C.date] || '').trim();
+    if (/\d{2}\/\d{2}\/\d{2,4}/.test(dateCell)) {
+      currentDate = dateCell;
+      currentDay  = String(r[C.day] || '').trim();
     }
  
-    const amt = parseNum(r[COL.amount]);
-    const thb = parseNum(r[COL.thb]);
-    if (amt > 0 || thb > 0) {
-      days[date].entries.push({
-        cat:  String(r[COL.cat]  || '').trim(),
-        desc: String(r[COL.desc] || '').trim(),
+    if (!currentDate) continue;
+ 
+    // יצירת רשומת יום אם לא קיימת
+    if (!days[currentDate]) {
+      days[currentDate] = {
+        date: currentDate,
+        dayName: currentDay,
+        entries: [],
+        total: 0
+      };
+    }
+ 
+    // הוספת הוצאה אם יש סכום
+    const thb = parseNum(r[C.thb]);
+    const amt = parseNum(r[C.amount]);
+    if (amt > 0) {
+      days[currentDate].entries.push({
+        cat:  String(r[C.cat]  || '').trim(),
+        desc: String(r[C.desc] || '').trim(),
         amt, thb
       });
-      days[date].total += thb > 0 ? thb : 0;
+      // צוברים את ה-THB (ואם אין — ממירים לפי שער קבוע)
+      days[currentDate].total += thb > 0 ? thb : 0;
     }
   }
  
-  return Object.values(days).sort((a, b) => {
-    const p = s => { const [d,m,y] = s.split('/').map(Number); return new Date(2000+y,m-1,d); };
-    return p(a.date) - p(b.date);
-  });
+  return Object.values(days).sort((a, b) => toDate(a.date) - toDate(b.date));
 }
  
 function render(days, month, monthIdx) {
-  const today  = new Date();
+  const today  = new Date(); today.setHours(23,59,59,0);
   const fixed  = fixedForMonth(monthIdx);
   const fixedTotal = fixed.reduce((s,e) => s+e.amount, 0);
   const income = 10220;
  
-  const elapsed = days.filter(d => {
-    const [dd,mm,yy] = d.date.split('/').map(Number);
-    return new Date(2000+yy,mm-1,dd) <= today;
-  });
+  const elapsed = days.filter(d => toDate(d.date) <= today);
+  const totalSpent  = elapsed.reduce((s,d) => s+d.total, 0);
+  const daysLeft    = days.length - elapsed.length;
+  const daysWithExp = elapsed.filter(d => d.total > 0).length;
+  const avgDaily    = daysWithExp > 0 ? totalSpent / daysWithExp : 0;
  
-  const totalSpent = elapsed.reduce((s,d) => s+d.total, 0);
-  const daysLeft   = days.length - elapsed.length;
-  const daysWithExp= elapsed.filter(d => d.total > 0).length;
-  const avgDaily   = daysWithExp > 0 ? totalSpent / daysWithExp : 0;
- 
+  // חיסכון יומי נצבר
   let savings = 0;
   elapsed.forEach(d => { savings += DAILY_BUDGET - d.total; });
  
@@ -238,32 +308,30 @@ function render(days, month, monthIdx) {
     cats[c] = (cats[c]||0) + e.thb;
   }));
  
-  // badge ראשי
   const sc = savings >= 0 ? 'badge-green' : 'badge-red';
   document.getElementById('fund-badge').innerHTML =
     `<span class="badge ${sc}">קופה: ${savings>=0?'+':''}${fmt(savings)} ฿</span>`;
   document.getElementById('last-updated').textContent =
-    'עודכן ' + today.toLocaleDateString('he-IL');
+    'עודכן ' + new Date().toLocaleDateString('he-IL');
  
   let html = '';
  
-  // מדדים
   html += `<div class="section-label">סיכום — ${month}</div><div class="metrics">`;
-  html += mk('הכנסה חודשית',    '₪'+fmt(income),            '$3,500 שכר',             '');
-  html += mk('הוצאות עד היום',  fmt(totalSpent)+' ฿',        '₪'+fmt(totalSpent*0.0897), totalSpent > elapsed.length*DAILY_BUDGET ? 'warn':'good');
-  html += mk('קצב יומי',        fmt(avgDaily)+' ฿',          'יעד: 1,300 ฿',           avgDaily > DAILY_BUDGET ? 'warn':'good');
-  html += mk('ימים נותרים',     daysLeft+' ימים',            fmt(daysLeft*DAILY_BUDGET)+' ฿ תקציב','');
-  html += mk('חיסכון נצבר',     (savings>=0?'+':'')+fmt(savings)+' ฿','לקופת חריגות', savings>=0?'good':'bad');
-  html += mk('קבועות',          '₪'+fmt(fixedTotal),         '₪'+fmt(income-fixedTotal)+' פנוי','');
+  html += mk('הכנסה חודשית',   '₪'+fmt(income),                          '$3,500 שכר',              '');
+  html += mk('הוצאות עד היום', fmt(totalSpent)+' ฿',                     '₪'+fmt(totalSpent*0.0897), totalSpent > elapsed.length*DAILY_BUDGET ? 'warn':'good');
+  html += mk('קצב יומי',       fmt(avgDaily)+' ฿',                       'יעד: 1,300 ฿',             avgDaily > DAILY_BUDGET ? 'warn':'good');
+  html += mk('ימים נותרים',    daysLeft+' ימים',                         fmt(daysLeft*DAILY_BUDGET)+' ฿ תקציב', '');
+  html += mk('חיסכון נצבר',   (savings>=0?'+':'')+fmt(savings)+' ฿',    'לקופת חריגות',             savings>=0?'good':'bad');
+  html += mk('קבועות',         '₪'+fmt(fixedTotal),                      '₪'+fmt(income-fixedTotal)+' פנוי', '');
   html += '</div>';
  
   // קטגוריות
-  const sortedCats = Object.entries(cats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  if (sortedCats.length > 0) {
-    const maxC = sortedCats[0][1];
+  const sc2 = Object.entries(cats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if (sc2.length > 0) {
+    const maxC = sc2[0][1];
     const colors = {'אוכל ושתייה':'#1D9E75','שונות יומי':'#7F77DD','בילויים וחברה':'#D85A30','תחבורה':'#BA7517','קניות':'#378ADD','מיסים וחובות':'#A32D2D'};
     html += `<div class="section-label">לפי קטגוריה</div><div class="card">`;
-    sortedCats.slice(0,6).forEach(([c,v]) => {
+    sc2.slice(0,6).forEach(([c,v]) => {
       const pct = Math.round(v/maxC*100);
       const col = colors[c]||'#888780';
       html += `<div class="cat-bar-row">
@@ -276,15 +344,16 @@ function render(days, month, monthIdx) {
   }
  
   // מעקב יומי
-  const withData = elapsed.filter(d => d.total > 0);
+  const withData = elapsed.filter(d => d.total > 0 || d.entries.length > 0);
   if (withData.length > 0) {
     const maxD = Math.max(...elapsed.map(d=>d.total), DAILY_BUDGET*1.5);
     html += `<div class="section-label">מעקב יומי</div><div class="card" style="max-height:300px;overflow-y:auto">`;
     elapsed.forEach(d => {
-      if (d.total === 0) return;
-      const pct  = Math.min(100, Math.round(d.total/maxD*100));
-      const sav  = DAILY_BUDGET - d.total;
-      const col  = d.total > DAILY_BUDGET ? '#E24B4A' : '#1D9E75';
+      // מציג גם ימים ריקים שכבר עברו? לא — רק עם הוצאות
+      if (d.total === 0 && d.entries.length === 0) return;
+      const pct = Math.min(100, Math.round(d.total/maxD*100));
+      const sav = DAILY_BUDGET - d.total;
+      const col = d.total > DAILY_BUDGET ? '#E24B4A' : '#1D9E75';
       const savHtml = sav >= 0
         ? `<span style="color:var(--green)">+${fmt(sav)}</span>`
         : `<span style="color:var(--red)">${fmt(sav)}</span>`;
@@ -304,7 +373,7 @@ function render(days, month, monthIdx) {
     html += `<div class="fixed-row">
       <span class="fixed-name">
         <span class="tag ${e.tag}">${e.label}</span>${e.name}
-        ${e.untilMonth!==undefined ? '<span style="font-size:10px;color:var(--text3)"> עד מאי 27</span>' : ''}
+        ${e.untilIdx!==undefined?'<span style="font-size:10px;color:var(--text3)"> עד מאי 27</span>':''}
       </span>
       <span class="fixed-amount">₪${fmt(e.amount)}</span>
     </div>`;
@@ -322,31 +391,96 @@ function mk(label, value, sub, cls) {
   </div>`;
 }
  
-async function loadMonth(month, monthIdx) {
+// ===== טעינת חודש =====
+let currentMonthIdx = 0;
+ 
+async function loadMonth(month, idx) {
+  currentMonthIdx = idx;
   document.querySelectorAll('.month-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.idx == monthIdx));
+    b.classList.toggle('active', b.dataset.idx == idx));
   document.getElementById('main-content').innerHTML =
     '<div class="loading">טוען ' + month + '...</div>';
   try {
     const rows = await fetchSheet(month);
     if (!rows || rows.length < 2) {
       document.getElementById('main-content').innerHTML =
-        `<div class="error-msg">הטאב "${month}" ריק או לא קיים בגיליון.<br>
-        ודא ששם הטאב בגיליון הוא בדיוק: <b>${month}</b></div>`;
+        `<div class="error-msg">הטאב "${month}" ריק או לא קיים בגיליון.</div>`;
       return;
     }
     const days = processRows(rows);
-    render(days, month, monthIdx);
+    render(days, month, idx);
   } catch(e) {
     document.getElementById('main-content').innerHTML =
-      `<div class="error-msg">
-        שגיאה בטעינת "${month}":<br>${e.message}<br><br>
-        בדוק שה-API Key תקין ושהגיליון פתוח לקריאה ציבורית.
-      </div>`;
+      `<div class="error-msg">שגיאה בטעינת "${month}":<br>${e.message}</div>`;
   }
 }
  
-// בניית בורר חודשים
+// ===== טופס הזנה =====
+function openModal() {
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('submit-msg').className = 'submit-msg';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-desc').value = '';
+}
+ 
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+ 
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+ 
+async function submitExpense() {
+  const cat      = document.getElementById('f-cat').value;
+  const desc     = document.getElementById('f-desc').value;
+  const amount   = parseFloat(document.getElementById('f-amount').value);
+  const currency = document.getElementById('f-currency').value;
+  const msgEl    = document.getElementById('submit-msg');
+ 
+  if (!amount || amount <= 0) {
+    msgEl.textContent = 'יש להזין סכום תקין';
+    msgEl.className = 'submit-msg err';
+    return;
+  }
+ 
+  const btn = document.querySelector('.btn-primary');
+  btn.textContent = 'שולח...';
+  btn.disabled = true;
+  msgEl.className = 'submit-msg';
+ 
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(now.getDate())+'/'+pad(now.getMonth()+1)+'/'+String(now.getFullYear()).slice(2);
+ 
+  const payload = { category: cat, description: desc, amount, currency, date: dateStr };
+ 
+  try {
+    await fetch(WEBHOOK, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    msgEl.textContent = '✓ ההוצאה נוספה לגיליון';
+    msgEl.className = 'submit-msg ok';
+    btn.textContent = 'הוסף הוצאה';
+    btn.disabled = false;
+    // רענון נתונים אחרי 2 שניות
+    setTimeout(() => {
+      delete cache[MONTHS[currentMonthIdx]];
+      closeModal();
+      loadMonth(MONTHS[currentMonthIdx], currentMonthIdx);
+    }, 2000);
+  } catch(e) {
+    msgEl.textContent = 'שגיאה בשליחה — נסה שוב';
+    msgEl.className = 'submit-msg err';
+    btn.textContent = 'הוסף הוצאה';
+    btn.disabled = false;
+  }
+}
+ 
+// ===== אתחול =====
 const sel = document.getElementById('month-selector');
 MONTHS.forEach((m, i) => {
   const btn = document.createElement('button');
@@ -357,12 +491,12 @@ MONTHS.forEach((m, i) => {
   sel.appendChild(btn);
 });
  
-// טוען את החודש הנוכחי כברירת מחדל
+// ברירת מחדל: חודש נוכחי
 const now = new Date();
-const defaultIdx = now.getFullYear() === 2026
-  ? Math.max(0, now.getMonth() - 4)   // מאי=0, יוני=1...
-  : Math.min(11, now.getMonth() + 8);
-loadMonth(MONTHS[defaultIdx], defaultIdx);
+const defIdx = now.getFullYear() === 2026
+  ? Math.max(0, Math.min(7, now.getMonth() - 4))
+  : Math.max(8, Math.min(11, now.getMonth() + 8));
+loadMonth(MONTHS[defIdx], defIdx);
 </script>
 </body>
 </html>
