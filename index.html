@@ -1,0 +1,368 @@
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>תזרים יואב</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f7f6f3; --surface: #ffffff; --surface2: #f0ede8;
+  --border: rgba(0,0,0,0.08); --text: #1a1a18; --text2: #6b6860; --text3: #9c9a94;
+  --green: #0F6E56; --green-bg: #E1F5EE; --red: #A32D2D; --red-bg: #FCEBEB;
+  --amber: #854F0B; --amber-bg: #FAEEDA; --blue: #185FA5; --blue-bg: #E6F1FB;
+  --radius: 12px; --radius-sm: 8px;
+}
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.header-title { font-size: 16px; font-weight: 600; }
+.header-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.month-selector { display: flex; gap: 8px; padding: 16px 24px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.month-selector::-webkit-scrollbar { display: none; }
+.month-btn { flex-shrink: 0; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-size: 13px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.month-btn:hover { background: var(--surface2); }
+.month-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+.main { padding: 16px 24px 40px; max-width: 720px; }
+.loading { text-align: center; padding: 60px 20px; color: var(--text3); font-size: 14px; }
+.error-msg { background: var(--red-bg); color: var(--red); padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 24px; }
+.section-label:first-child { margin-top: 8px; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.metric { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px 14px; }
+.metric .m-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+.metric .m-value { font-size: 20px; font-weight: 600; color: var(--text); line-height: 1.1; }
+.metric .m-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.metric.good .m-value { color: var(--green); }
+.metric.warn .m-value { color: var(--amber); }
+.metric.bad .m-value { color: var(--red); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
+.daily-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.daily-row:last-child { border-bottom: none; }
+.day-date { width: 85px; color: var(--text2); flex-shrink: 0; font-size: 12px; }
+.day-bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.day-bar-fill { height: 8px; border-radius: 4px; }
+.day-amount { width: 65px; text-align: left; font-size: 12px; flex-shrink: 0; }
+.day-saving { width: 65px; text-align: left; font-size: 11px; flex-shrink: 0; }
+.fixed-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.fixed-row:last-child { border-bottom: none; }
+.fixed-name { color: var(--text2); }
+.fixed-amount { font-weight: 500; flex-shrink: 0; margin-right: 8px; }
+.tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 99px; margin-left: 6px; font-weight: 500; }
+.tag-media { background: var(--blue-bg); color: var(--blue); }
+.tag-device { background: #EEEDFE; color: #534AB7; }
+.tag-tax { background: var(--amber-bg); color: var(--amber); }
+.tag-save { background: var(--green-bg); color: var(--green); }
+.tag-transport { background: var(--amber-bg); color: var(--amber); }
+.tag-debt { background: var(--red-bg); color: var(--red); }
+.cat-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.cat-label { width: 130px; color: var(--text2); text-align: right; flex-shrink: 0; }
+.cat-track { flex: 1; background: var(--surface2); border-radius: 4px; height: 10px; overflow: hidden; }
+.cat-fill { height: 10px; border-radius: 4px; }
+.cat-val { width: 65px; font-size: 12px; text-align: left; flex-shrink: 0; }
+.total-row { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px; }
+.badge { display: inline-flex; align-items: center; font-size: 11px; padding: 3px 10px; border-radius: 99px; }
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+@media (max-width: 480px) {
+  .header { padding: 12px 16px; }
+  .month-selector { padding: 12px 16px 0; }
+  .main { padding: 12px 16px 40px; }
+  .metric .m-value { font-size: 17px; }
+  .day-saving { display: none; }
+}
+</style>
+</head>
+<body>
+ 
+<div class="header">
+  <div>
+    <div class="header-title">תזרים יואב</div>
+    <div class="header-sub" id="last-updated">טוען...</div>
+  </div>
+  <div id="fund-badge"></div>
+</div>
+ 
+<div class="month-selector" id="month-selector"></div>
+<div class="main" id="main-content">
+  <div class="loading">טוען נתונים מהגיליון...</div>
+</div>
+ 
+<script>
+const SHEET_ID = '1BZYgLZE6fLV3nZW0yd3ea7mU5FtPflN0Wbv8IJf61xw';
+const API_KEY  = 'AIzaSyCipZ-FbAaLYHaDMiKeNpqmVz7AI7QwrQg';
+const DAILY_BUDGET = 1300;
+ 
+// שמות הטאבים בגיליון — חייבים להתאים בדיוק
+const MONTHS = [
+  'מאי 2026','יוני 2026','יולי 2026','אוגוסט 2026',
+  'ספטמבר 2026','אוקטובר 2026','נובמבר 2026','דצמבר 2026',
+  'ינואר 2027','פברואר 2027','מרץ 2027','אפריל 2027'
+];
+ 
+const FIXED = [
+  { name: 'מקבוק אייר M4',           amount: 212,  tag: 'tag-device',    label: 'מכשיר'   },
+  { name: 'אייפון 17 פרו',            amount: 279,  tag: 'tag-device',    label: 'מכשיר'   },
+  { name: 'אחסון ענן',                amount: 39,   tag: 'tag-media',     label: 'מדיה'    },
+  { name: 'סלולר',                    amount: 26,   tag: 'tag-media',     label: 'מדיה'    },
+  { name: 'מידג׳ורני',               amount: 27,   tag: 'tag-media',     label: 'מדיה'    },
+  { name: 'צ׳אט ג׳יפיטי',           amount: 67,   tag: 'tag-media',     label: 'מדיה'    },
+  { name: 'קלוד',                     amount: 58,   tag: 'tag-media',     label: 'מדיה'    },
+  { name: 'ספוטיפיי',                 amount: 23,   tag: 'tag-media',     label: 'מדיה'    },
+  { name: 'שכירות אופנוע',            amount: 492,  tag: 'tag-transport', label: 'תחבורה'  },
+  { name: 'ביטוח לאומי שוטף',         amount: 959,  tag: 'tag-tax',       label: 'מיסים'   },
+  { name: 'החזר חוב ביטוח לאומי 2024',amount: 2100, tag: 'tag-debt',      label: 'חוב', untilMonth: 11 },
+  { name: 'החזר הלוואה מס הכנסה',     amount: 1100, tag: 'tag-debt',      label: 'חוב'     },
+  { name: 'קרן השתלמות',              amount: 1000, tag: 'tag-save',      label: 'חיסכון'  },
+  { name: 'קרן פנסיה',                amount: 1000, tag: 'tag-save',      label: 'חיסכון'  },
+  { name: 'מס הכנסה',                 amount: 624,  tag: 'tag-tax',       label: 'מיסים'   },
+];
+ 
+// החזר חוב ביטוח לאומי פעיל רק עד מאי 27 (אינדקס 11 ב-MONTHS)
+function fixedForMonth(monthIdx) {
+  return FIXED.filter(e => {
+    if (e.untilMonth !== undefined && monthIdx > e.untilMonth) return false;
+    return true;
+  });
+}
+ 
+let cache = {};
+ 
+async function fetchSheet(tabName) {
+  if (cache[tabName]) return cache[tabName];
+  const url = 'https://sheets.googleapis.com/v4/spreadsheets/'
+    + SHEET_ID + '/values/'
+    + encodeURIComponent(tabName)
+    + '?key=' + API_KEY;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = (err.error && err.error.message) || ('HTTP ' + res.status);
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  cache[tabName] = data.values || [];
+  return cache[tabName];
+}
+ 
+function parseNum(v) {
+  if (!v) return 0;
+  const n = parseFloat(String(v).replace(/[^\d.-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+ 
+function fmt(n) { return Math.round(n).toLocaleString('he-IL'); }
+ 
+function processRows(rows) {
+  const days = {};
+ 
+  // מוצא את שורת הכותרת (מכילה "תאריך")
+  let hdr = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].some(c => String(c).trim() === 'תאריך')) { hdr = i; break; }
+  }
+  if (hdr === -1) return [];
+ 
+  // מזהה עמודות לפי כותרת
+  const h = rows[hdr];
+  const COL = {
+    rowNum:   h.findIndex(c => String(c).trim() === '#'),
+    day:      h.findIndex(c => String(c).trim() === 'יום'),
+    date:     h.findIndex(c => String(c).trim() === 'תאריך'),
+    cat:      h.findIndex(c => String(c).trim() === 'קטגוריה'),
+    desc:     h.findIndex(c => String(c).trim() === 'פירוט / תיאור' || String(c).trim() === 'פירוט'),
+    amount:   h.findIndex(c => String(c).trim() === 'סכום'),
+    thb:      h.findIndex(c => String(c).includes('฿') && String(c).includes('שווי')),
+  };
+ 
+  // fallback לעמודות לפי מיקום קבוע אם לא נמצא לפי שם
+  if (COL.date  === -1) COL.date   = 2;
+  if (COL.day   === -1) COL.day    = 1;
+  if (COL.cat   === -1) COL.cat    = 3;
+  if (COL.desc  === -1) COL.desc   = 4;
+  if (COL.amount=== -1) COL.amount = 5;
+  if (COL.thb   === -1) COL.thb    = 9;
+ 
+  for (let i = hdr + 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r.length < 3) continue;
+ 
+    const date = String(r[COL.date] || '').trim();
+    if (!/\d{2}\/\d{2}\/\d{2}/.test(date)) continue;
+ 
+    if (!days[date]) {
+      days[date] = { date, dayName: r[COL.day] || '', entries: [], total: 0 };
+    }
+ 
+    const amt = parseNum(r[COL.amount]);
+    const thb = parseNum(r[COL.thb]);
+    if (amt > 0 || thb > 0) {
+      days[date].entries.push({
+        cat:  String(r[COL.cat]  || '').trim(),
+        desc: String(r[COL.desc] || '').trim(),
+        amt, thb
+      });
+      days[date].total += thb > 0 ? thb : 0;
+    }
+  }
+ 
+  return Object.values(days).sort((a, b) => {
+    const p = s => { const [d,m,y] = s.split('/').map(Number); return new Date(2000+y,m-1,d); };
+    return p(a.date) - p(b.date);
+  });
+}
+ 
+function render(days, month, monthIdx) {
+  const today  = new Date();
+  const fixed  = fixedForMonth(monthIdx);
+  const fixedTotal = fixed.reduce((s,e) => s+e.amount, 0);
+  const income = 10220;
+ 
+  const elapsed = days.filter(d => {
+    const [dd,mm,yy] = d.date.split('/').map(Number);
+    return new Date(2000+yy,mm-1,dd) <= today;
+  });
+ 
+  const totalSpent = elapsed.reduce((s,d) => s+d.total, 0);
+  const daysLeft   = days.length - elapsed.length;
+  const daysWithExp= elapsed.filter(d => d.total > 0).length;
+  const avgDaily   = daysWithExp > 0 ? totalSpent / daysWithExp : 0;
+ 
+  let savings = 0;
+  elapsed.forEach(d => { savings += DAILY_BUDGET - d.total; });
+ 
+  // קטגוריות
+  const cats = {};
+  days.forEach(d => d.entries.forEach(e => {
+    const c = e.cat || 'שונות';
+    cats[c] = (cats[c]||0) + e.thb;
+  }));
+ 
+  // badge ראשי
+  const sc = savings >= 0 ? 'badge-green' : 'badge-red';
+  document.getElementById('fund-badge').innerHTML =
+    `<span class="badge ${sc}">קופה: ${savings>=0?'+':''}${fmt(savings)} ฿</span>`;
+  document.getElementById('last-updated').textContent =
+    'עודכן ' + today.toLocaleDateString('he-IL');
+ 
+  let html = '';
+ 
+  // מדדים
+  html += `<div class="section-label">סיכום — ${month}</div><div class="metrics">`;
+  html += mk('הכנסה חודשית',    '₪'+fmt(income),            '$3,500 שכר',             '');
+  html += mk('הוצאות עד היום',  fmt(totalSpent)+' ฿',        '₪'+fmt(totalSpent*0.0897), totalSpent > elapsed.length*DAILY_BUDGET ? 'warn':'good');
+  html += mk('קצב יומי',        fmt(avgDaily)+' ฿',          'יעד: 1,300 ฿',           avgDaily > DAILY_BUDGET ? 'warn':'good');
+  html += mk('ימים נותרים',     daysLeft+' ימים',            fmt(daysLeft*DAILY_BUDGET)+' ฿ תקציב','');
+  html += mk('חיסכון נצבר',     (savings>=0?'+':'')+fmt(savings)+' ฿','לקופת חריגות', savings>=0?'good':'bad');
+  html += mk('קבועות',          '₪'+fmt(fixedTotal),         '₪'+fmt(income-fixedTotal)+' פנוי','');
+  html += '</div>';
+ 
+  // קטגוריות
+  const sortedCats = Object.entries(cats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if (sortedCats.length > 0) {
+    const maxC = sortedCats[0][1];
+    const colors = {'אוכל ושתייה':'#1D9E75','שונות יומי':'#7F77DD','בילויים וחברה':'#D85A30','תחבורה':'#BA7517','קניות':'#378ADD','מיסים וחובות':'#A32D2D'};
+    html += `<div class="section-label">לפי קטגוריה</div><div class="card">`;
+    sortedCats.slice(0,6).forEach(([c,v]) => {
+      const pct = Math.round(v/maxC*100);
+      const col = colors[c]||'#888780';
+      html += `<div class="cat-bar-row">
+        <div class="cat-label">${c}</div>
+        <div class="cat-track"><div class="cat-fill" style="width:${pct}%;background:${col}"></div></div>
+        <div class="cat-val">${fmt(v)} ฿</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+ 
+  // מעקב יומי
+  const withData = elapsed.filter(d => d.total > 0);
+  if (withData.length > 0) {
+    const maxD = Math.max(...elapsed.map(d=>d.total), DAILY_BUDGET*1.5);
+    html += `<div class="section-label">מעקב יומי</div><div class="card" style="max-height:300px;overflow-y:auto">`;
+    elapsed.forEach(d => {
+      if (d.total === 0) return;
+      const pct  = Math.min(100, Math.round(d.total/maxD*100));
+      const sav  = DAILY_BUDGET - d.total;
+      const col  = d.total > DAILY_BUDGET ? '#E24B4A' : '#1D9E75';
+      const savHtml = sav >= 0
+        ? `<span style="color:var(--green)">+${fmt(sav)}</span>`
+        : `<span style="color:var(--red)">${fmt(sav)}</span>`;
+      html += `<div class="daily-row">
+        <div class="day-date">${d.date.slice(0,5)} ${d.dayName}</div>
+        <div class="day-bar-track"><div class="day-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        <div class="day-amount">${fmt(d.total)} ฿</div>
+        <div class="day-saving">${savHtml} ฿</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+ 
+  // הוצאות קבועות
+  html += `<div class="section-label">הוצאות קבועות — ${month}</div><div class="card">`;
+  fixed.forEach(e => {
+    html += `<div class="fixed-row">
+      <span class="fixed-name">
+        <span class="tag ${e.tag}">${e.label}</span>${e.name}
+        ${e.untilMonth!==undefined ? '<span style="font-size:10px;color:var(--text3)"> עד מאי 27</span>' : ''}
+      </span>
+      <span class="fixed-amount">₪${fmt(e.amount)}</span>
+    </div>`;
+  });
+  html += `<div class="total-row"><span>סה"כ</span><span>₪${fmt(fixedTotal)}</span></div></div>`;
+ 
+  document.getElementById('main-content').innerHTML = html;
+}
+ 
+function mk(label, value, sub, cls) {
+  return `<div class="metric ${cls}">
+    <div class="m-label">${label}</div>
+    <div class="m-value">${value}</div>
+    <div class="m-sub">${sub}</div>
+  </div>`;
+}
+ 
+async function loadMonth(month, monthIdx) {
+  document.querySelectorAll('.month-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.idx == monthIdx));
+  document.getElementById('main-content').innerHTML =
+    '<div class="loading">טוען ' + month + '...</div>';
+  try {
+    const rows = await fetchSheet(month);
+    if (!rows || rows.length < 2) {
+      document.getElementById('main-content').innerHTML =
+        `<div class="error-msg">הטאב "${month}" ריק או לא קיים בגיליון.<br>
+        ודא ששם הטאב בגיליון הוא בדיוק: <b>${month}</b></div>`;
+      return;
+    }
+    const days = processRows(rows);
+    render(days, month, monthIdx);
+  } catch(e) {
+    document.getElementById('main-content').innerHTML =
+      `<div class="error-msg">
+        שגיאה בטעינת "${month}":<br>${e.message}<br><br>
+        בדוק שה-API Key תקין ושהגיליון פתוח לקריאה ציבורית.
+      </div>`;
+  }
+}
+ 
+// בניית בורר חודשים
+const sel = document.getElementById('month-selector');
+MONTHS.forEach((m, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'month-btn';
+  btn.dataset.idx = i;
+  btn.textContent = m;
+  btn.onclick = () => loadMonth(m, i);
+  sel.appendChild(btn);
+});
+ 
+// טוען את החודש הנוכחי כברירת מחדל
+const now = new Date();
+const defaultIdx = now.getFullYear() === 2026
+  ? Math.max(0, now.getMonth() - 4)   // מאי=0, יוני=1...
+  : Math.min(11, now.getMonth() + 8);
+loadMonth(MONTHS[defaultIdx], defaultIdx);
+</script>
+</body>
+</html>
