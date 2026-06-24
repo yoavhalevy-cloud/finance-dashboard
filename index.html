@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -635,7 +634,7 @@ function renderFund(savings, rows) {
   if (fundExpenses.length>0) {
     html+=`<div class="section-label">הוצאות חריגות</div><div class="card">`;
     fundExpenses.forEach(e=>{
-      html+=`<div class="row"><span class="row-name">${e.desc}${e.date?` <span style="font-size:11px;color:var(--text3)">${e.date}</span>`:''}</span><span class="row-val">${fmt(e.amount)} ฿</span></div>`;
+      html+=`<div class="row"><span class="row-name">${e.desc}</span><span style="font-size:11px;color:var(--text3);flex:1;text-align:center">${e.date||'—'}</span><span class="row-val">${fmt(e.amount)} ฿</span></div>`;
     });
     html+=`<div class="total-row"><span>סה"כ</span><span>${fmt(totalFundSpent)} ฿</span></div></div>`;
   } else {
