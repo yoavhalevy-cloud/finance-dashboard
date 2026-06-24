@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -576,72 +577,190 @@ function renderIncome(rows) {
 }
  
 // ===== FUND TAB =====
+let fundMonthIdx = 0;
+ 
 async function loadFund() {
   const el=document.getElementById('fund-content');
   el.innerHTML='<div class="loading">טוען קופת חריגות...</div>';
   try {
-    const month=MONTHS[currentMonthIdx];
-    const rows=await fetchSheet(month);
-    const days=processExpenses(rows);
-    const today=new Date(); today.setHours(23,59,59,0);
-    let savings=0;
-    days.filter(d=>toDate(d.date)<=today).forEach(d=>{savings+=DAILY_BUDGET-d.total;});
-    let fundRows=[];
-    try { fundRows=await fetchSheet('קופת חריגות'); } catch(e) {}
-    renderFund(savings, fundRows);
+    const allMonthData = {};
+    await Promise.all(MONTHS.map(async (m, i) => {
+      try { const rows = await fetchSheet(m); allMonthData[i] = processExpenses(rows); }
+      catch(e) { allMonthData[i] = []; }
+    }));
+    let fundRows = [];
+    try { fundRows = await fetchSheet('קופת חריגות'); } catch(e) {}
+    renderFund(allMonthData, fundRows);
   } catch(e) {
     el.innerHTML=`<div class="error-msg">שגיאה: ${e.message}</div>`;
   }
 }
  
-function renderFund(savings, rows) {
-  let fundExpenses=[], totalFundSpent=0;
-  if (rows&&rows.length>2) {
-    let hdr=-1;
-    for (let i=0;i<rows.length;i++) {
-      if (rows[i].some(c=>String(c).includes('תיאור')||String(c).includes('פריט'))) { hdr=i; break; }
-    }
-    if (hdr>-1) {
-      for (let i=hdr+1;i<rows.length;i++) {
-        const r=rows[i];
-        if (!r[0]||String(r[0]).trim()==='') continue;
-        const amt=parseNum(r[2])||parseNum(r[3])||parseNum(r[4]);
-        if (amt>0) { fundExpenses.push({desc:String(r[0]).trim(),date:r[1]||'',amount:amt}); totalFundSpent+=amt; }
+function parseFundExpenses(rows) {
+  let expenses = [];
+  if (!rows || rows.length < 2) return expenses;
+  let hdr = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].some(c => String(c).includes('תיאור') || String(c).includes('פריט'))) { hdr = i; break; }
+  }
+  if (hdr === -1) return expenses;
+  for (let i = hdr + 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[0] || String(r[0]).trim() === '') continue;
+    const amt = parseNum(r[2]) || parseNum(r[3]) || parseNum(r[4]);
+    const dateRaw = String(r[1] || '').trim();
+    let monthIdx = -1;
+    if (dateRaw) {
+      const parts = dateRaw.split('/');
+      if (parts.length >= 3) {
+        const mo = parseInt(parts[1]), yr = parseInt(parts[2]);
+        const fullYr = yr < 100 ? 2000 + yr : yr;
+        if (fullYr === 2026) monthIdx = mo - 5;
+        else if (fullYr === 2027) monthIdx = mo + 7;
       }
     }
+    if (amt > 0) expenses.push({ desc: String(r[0]).trim(), date: dateRaw, amount: amt, monthIdx });
   }
-  const balance=savings-totalFundSpent;
-  const pct=savings>0?Math.min(100,Math.round(totalFundSpent/savings*100)):100;
- 
-  let html='';
-  html+=`<div class="section-label">מצב הקופה</div>`;
-  html+=`<div class="fund-bar-wrap">
-    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-      <span style="color:var(--text2)">חיסכון נצבר החודש</span>
-      <span style="color:var(--green);font-weight:500">+${fmt(savings)} ฿</span>
-    </div>
-    <div class="fund-track"><div class="${balance>=0?'fund-fill-g':'fund-fill-r'}" style="width:${pct}%"></div></div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:2px">
-      <span>הוצא: ${fmt(totalFundSpent)} ฿</span>
-      <span>יתרה: <b style="color:${balance>=0?'var(--green)':'var(--red)'}">${balance>=0?'+':''}${fmt(balance)} ฿</b></span>
-    </div>
-  </div>`;
-  html+=`<div class="metrics">`;
-  html+=mk('חיסכון יומי','+'+fmt(savings)+' ฿','החודש הנוכחי','good');
-  html+=mk('הוצא מהקופה',fmt(totalFundSpent)+' ฿','הוצאות חריגות',totalFundSpent>0?'warn':'');
-  html+=mk('יתרה',(balance>=0?'+':'')+fmt(balance)+' ฿','זמין לשימוש',balance>=0?'good':'bad');
-  html+='</div>';
-  if (fundExpenses.length>0) {
-    html+=`<div class="section-label">הוצאות חריגות</div><div class="card">`;
-    fundExpenses.forEach(e=>{
-      html+=`<div class="row"><span class="row-name">${e.desc}</span><span style="font-size:11px;color:var(--text3);flex:1;text-align:center">${e.date||'—'}</span><span class="row-val">${fmt(e.amount)} ฿</span></div>`;
-    });
-    html+=`<div class="total-row"><span>סה"כ</span><span>${fmt(totalFundSpent)} ฿</span></div></div>`;
-  } else {
-    html+=`<div class="card" style="text-align:center;padding:24px;color:var(--text3);font-size:13px">אין הוצאות חריגות<br><small>לחץ + להוספת הוצאה חריגה</small></div>`;
-  }
-  document.getElementById('fund-content').innerHTML=html;
+  return expenses;
 }
+ 
+function calcMonthSavings(days, monthIdx) {
+  const today = new Date(); today.setHours(23, 59, 59, 0);
+  const now = new Date();
+  const thisMonthIdx = now.getFullYear() === 2026 ? now.getMonth() - 4 : now.getMonth() + 8;
+  let savings = 0, daysArr = [];
+  days.forEach(d => {
+    const dt = toDate(d.date);
+    if (monthIdx < thisMonthIdx || dt <= today) {
+      const sav = DAILY_BUDGET - d.total;
+      savings += sav;
+      daysArr.push({ date: d.date, dayName: d.dayName, total: d.total, saving: sav });
+    }
+  });
+  return { savings, daysArr };
+}
+ 
+function renderFund(allMonthData, fundRows) {
+  const fundExpenses = parseFundExpenses(fundRows);
+  const now = new Date();
+  const thisMonthIdx = now.getFullYear() === 2026 ? now.getMonth() - 4 : now.getMonth() + 8;
+ 
+  const monthSummaries = MONTHS.map((m, i) => {
+    const days = allMonthData[i] || [];
+    const { savings, daysArr } = calcMonthSavings(days, i);
+    return { month: m, idx: i, savings, daysArr };
+  });
+ 
+  let cumulativeSavings = 0;
+  monthSummaries.forEach(ms => { if (ms.idx <= thisMonthIdx) cumulativeSavings += ms.savings; });
+ 
+  const selectedMonth = monthSummaries[fundMonthIdx] || monthSummaries[thisMonthIdx] || monthSummaries[0];
+  const monthFundExpenses = fundExpenses.filter(e => e.monthIdx === fundMonthIdx);
+  const allFundExpenses = fundExpenses;
+ 
+  let html = '';
+ 
+  // בורר חודש
+  html += `<div class="section-label">בחר חודש</div>`;
+  html += `<div class="month-selector" style="padding:0 0 12px 0">`;
+  MONTHS.forEach((m, i) => {
+    const ms = monthSummaries[i];
+    const cls = i === fundMonthIdx ? 'month-btn active' : 'month-btn';
+    const sign = ms.savings >= 0 ? '+' : '';
+    html += `<button class="${cls}" onclick="setFundMonth(${i})" style="line-height:1.4">${m}<br><small style="font-size:10px;opacity:0.7">${sign}${fmt(ms.savings)}฿</small></button>`;
+  });
+  html += `</div>`;
+ 
+  // קוביות
+  const mSav = selectedMonth.savings;
+  const mExpenses = monthFundExpenses.reduce((s, e) => s + e.amount, 0);
+  const mBalance = mSav - mExpenses;
+ 
+  html += `<div class="section-label">📅 ${selectedMonth.month}</div>`;
+  html += `<div class="metrics" style="margin-bottom:12px">`;
+  html += mk('חיסכון יומי נצבר', (mSav >= 0 ? '+' : '') + fmt(mSav) + ' ฿', 'מול יעד 1,300 ฿/יום', mSav >= 0 ? 'good' : 'bad');
+  html += mk('הוצאות גדולות', fmt(mExpenses) + ' ฿', monthFundExpenses.length + ' הוצאות', mExpenses > 0 ? 'warn' : '');
+  html += mk('יתרת החודש', (mBalance >= 0 ? '+' : '') + fmt(mBalance) + ' ฿', mBalance >= 0 ? 'עובר לחיסכון' : 'נספג במינוס', mBalance >= 0 ? 'good' : 'bad');
+  html += `</div>`;
+ 
+  // פס
+  html += `<div class="fund-bar-wrap">`;
+  const barPct = Math.abs(mSav) > 0 ? Math.min(100, Math.round(Math.abs(mBalance) / Math.max(Math.abs(mSav), Math.abs(mExpenses)) * 100)) : 50;
+  html += `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+    <span style="color:var(--text2)">חיסכון יומי</span><span style="color:var(--text2)">הוצאות גדולות</span></div>
+    <div class="fund-track"><div class="${mBalance>=0?'fund-fill-g':'fund-fill-r'}" style="width:${barPct}%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px">
+    <span>${fmt(mSav)} ฿ נחסך</span><span>${fmt(mExpenses)} ฿ הוצא</span></div>`;
+  html += `</div>`;
+ 
+  // יומן חיסכון
+  const daysWithData = selectedMonth.daysArr.filter(d => d.total > 0);
+  if (daysWithData.length > 0) {
+    const maxAbs = Math.max(...selectedMonth.daysArr.map(d => Math.abs(d.saving)), 1);
+    html += `<div class="section-label">📊 חיסכון יומי — ${selectedMonth.month}</div>`;
+    html += `<div class="card" style="max-height:220px;overflow-y:auto">`;
+    daysWithData.forEach(d => {
+      const isPos = d.saving >= 0;
+      const pct = Math.min(100, Math.round(Math.abs(d.saving) / maxAbs * 100));
+      const col = isPos ? 'var(--green)' : 'var(--red)';
+      html += `<div class="daily-row">
+        <div class="day-date">${d.date.slice(0,5)}</div>
+        <div class="day-bar-track"><div class="day-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        <div class="day-amount">${fmt(d.total)} ฿</div>
+        <div class="day-saving" style="color:${col}">${isPos?'+':''}${fmt(d.saving)} ฿</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+ 
+  // הוצאות גדולות של החודש
+  html += `<div class="section-label">💸 הוצאות גדולות — ${selectedMonth.month}</div>`;
+  if (monthFundExpenses.length > 0) {
+    html += `<div class="card">`;
+    monthFundExpenses.forEach(e => {
+      html += `<div class="row">
+        <span class="row-name">${e.desc}</span>
+        <span style="font-size:11px;color:var(--text3);margin:0 8px">${e.date||'—'}</span>
+        <span class="row-val" style="color:var(--red)">-${fmt(e.amount)} ฿</span>
+      </div>`;
+    });
+    html += `<div class="total-row"><span>סה"כ</span><span style="color:var(--red)">${fmt(mExpenses)} ฿</span></div></div>`;
+  } else {
+    html += `<div class="card" style="text-align:center;padding:20px;color:var(--text3);font-size:12px">אין הוצאות גדולות ב${selectedMonth.month}<br><small>לחץ + להוספה</small></div>`;
+  }
+ 
+  // סיכום כל החודשים
+  html += `<div class="section-label">📈 סיכום כל התקופה</div><div class="card">`;
+  monthSummaries.filter(ms => ms.savings !== 0 || ms.idx <= thisMonthIdx).forEach(ms => {
+    const msExp = fundExpenses.filter(e => e.monthIdx === ms.idx).reduce((s, e) => s + e.amount, 0);
+    const msBal = ms.savings - msExp;
+    const col = msBal >= 0 ? 'var(--green)' : 'var(--red)';
+    const isCurrent = ms.idx === thisMonthIdx;
+    html += `<div class="row" style="${ms.idx === fundMonthIdx ? 'background:var(--surface2);border-radius:6px;padding:7px 8px;' : ''}">
+      <span class="row-name" style="font-weight:${isCurrent?'600':'400'}">${ms.month}${isCurrent?' <span style="font-size:10px;color:var(--blue)">נוכחי</span>':''}</span>
+      <span style="font-size:11px;color:var(--text3)">${fmt(ms.savings)}฿</span>
+      <span class="row-val" style="color:${col}">${msBal>=0?'+':''}${fmt(msBal)} ฿</span>
+    </div>`;
+  });
+  html += `<div class="total-row"><span>סה"כ מצטבר</span><span style="color:${cumulativeSavings>=0?'var(--green)':'var(--red)'}">${cumulativeSavings>=0?'+':''}${fmt(cumulativeSavings)} ฿</span></div></div>`;
+ 
+  // כל ההוצאות הגדולות
+  if (allFundExpenses.length > 0) {
+    html += `<div class="section-label">📋 כל ההוצאות הגדולות</div><div class="card">`;
+    allFundExpenses.forEach(e => {
+      html += `<div class="row">
+        <span class="row-name">${e.desc}</span>
+        <span style="font-size:11px;color:var(--text3);margin:0 8px">${e.date||'—'}</span>
+        <span class="row-val" style="color:var(--red)">-${fmt(e.amount)} ฿</span>
+      </div>`;
+    });
+    html += `<div class="total-row"><span>סה"כ</span><span style="color:var(--red)">${fmt(allFundExpenses.reduce((s,e)=>s+e.amount,0))} ฿</span></div></div>`;
+  }
+ 
+  document.getElementById('fund-content').innerHTML = html;
+}
+ 
+function setFundMonth(idx) { fundMonthIdx = idx; loadFund(); }
  
 // ===== BANK TAB =====
 function buildForecastEvents(horizonDays) {
