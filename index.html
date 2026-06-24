@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -300,10 +299,24 @@ body { font-family: -apple-system,'Segoe UI',sans-serif; background: var(--bg); 
     <h3>הוסף הוצאה חריגה</h3>
     <div class="form-row"><label>תיאור</label><input type="text" id="fu-desc" placeholder="לדוגמה: טיסה לתאילנד"></div>
     <div class="form-row"><label>תאריך</label><input type="date" id="fu-date"></div>
+    <div class="form-row"><label>קטגוריה</label>
+      <select id="fu-cat">
+        <option value="ויזה">ויזה</option>
+        <option value="רפואה">רפואה</option>
+        <option value="טיסות">טיסות</option>
+        <option value="קניות">קניות</option>
+        <option value="מיסים וחובות">מיסים וחובות</option>
+        <option value="עסקי">עסקי</option>
+        <option value="שונות">שונות</option>
+      </select>
+    </div>
     <div class="form-row"><div class="two">
-      <div><label>סכום</label><input type="number" id="fu-amount" inputmode="decimal"></div>
-      <div><label>מטבע</label><select id="fu-currency"><option value="THB">฿ באט</option><option value="ILS">₪ שקל</option><option value="USD">$ דולר</option></select></div>
+      <div><label>סכום ฿ (באט)</label><input type="number" id="fu-amount-thb" inputmode="decimal" placeholder="0"></div>
+      <div><label>שווי ₪ (שקל)</label><input type="number" id="fu-amount-ils" inputmode="decimal" placeholder="0"></div>
     </div></div>
+    <div class="form-row">
+      <label>שווי $ (דולר)</label><input type="number" id="fu-amount-usd" inputmode="decimal" placeholder="0">
+    </div>
     <div class="form-actions">
       <button class="btn-cancel" onclick="closeModal('modal-fund')">ביטול</button>
       <button class="btn-primary" onclick="submitFund()">הוסף</button>
@@ -599,27 +612,22 @@ async function loadFund() {
 function parseFundExpenses(rows) {
   let expenses = [];
   if (!rows || rows.length < 2) return expenses;
+  // שורת כותרת: A=#, B=תיאור, C=סכום฿, D=שווי₪, E=שווי$, F=תאריך, G=קטגוריה
   let hdr = -1;
   for (let i = 0; i < rows.length; i++) {
-    if (rows[i].some(c => String(c).includes('תיאור') || String(c).includes('פריט'))) { hdr = i; break; }
+    if (rows[i].some(c => String(c).trim() === '#' || String(c).includes('תיאור'))) { hdr = i; break; }
   }
   if (hdr === -1) return expenses;
   for (let i = hdr + 1; i < rows.length; i++) {
     const r = rows[i];
-    if (!r[0] || String(r[0]).trim() === '') continue;
-    const amt = parseNum(r[2]) || parseNum(r[3]) || parseNum(r[4]);
-    const dateRaw = String(r[1] || '').trim();
-    let monthIdx = -1;
-    if (dateRaw) {
-      const parts = dateRaw.split('/');
-      if (parts.length >= 3) {
-        const mo = parseInt(parts[1]), yr = parseInt(parts[2]);
-        const fullYr = yr < 100 ? 2000 + yr : yr;
-        if (fullYr === 2026) monthIdx = mo - 5;
-        else if (fullYr === 2027) monthIdx = mo + 7;
-      }
-    }
-    if (amt > 0) expenses.push({ desc: String(r[0]).trim(), date: dateRaw, amount: amt, monthIdx });
+    if (!r[1] || String(r[1]).trim() === '') continue;
+    const amt  = parseNum(r[2]);
+    const ils  = parseNum(r[3]);
+    const usd  = parseNum(r[4]);
+    const date = String(r[5] || '').trim();
+    const cat  = String(r[6] || '').trim();
+    if (amt <= 0) continue;
+    expenses.push({ desc: String(r[1]).trim(), amount: amt, ils, usd, date, cat });
   }
   return expenses;
 }
@@ -718,10 +726,17 @@ function renderFund(allMonthData, fundRows) {
   if (monthFundExpenses.length > 0) {
     html += `<div class="card">`;
     monthFundExpenses.forEach(e => {
-      html += `<div class="row">
-        <span class="row-name">${e.desc}</span>
-        <span style="font-size:11px;color:var(--text3);margin:0 8px">${e.date||'—'}</span>
-        <span class="row-val" style="color:var(--red)">-${fmt(e.amount)} ฿</span>
+      html += `<div style="padding:9px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:500">${e.desc}</span>
+          <span style="color:var(--red);font-weight:600">-${fmt(e.amount)} ฿</span>
+        </div>
+        <div style="display:flex;gap:12px;color:var(--text3);font-size:11px;flex-wrap:wrap">
+          ${e.date ? `<span>📅 ${e.date}</span>` : ''}
+          ${e.cat  ? `<span>🏷 ${e.cat}</span>`  : ''}
+          ${e.ils  ? `<span>₪${fmt(e.ils)}</span>` : ''}
+          ${e.usd  ? `<span>$${e.usd.toFixed(2)}</span>` : ''}
+        </div>
       </div>`;
     });
     html += `<div class="total-row"><span>סה"כ</span><span style="color:var(--red)">${fmt(mExpenses)} ฿</span></div></div>`;
@@ -748,10 +763,17 @@ function renderFund(allMonthData, fundRows) {
   if (allFundExpenses.length > 0) {
     html += `<div class="section-label">📋 כל ההוצאות הגדולות</div><div class="card">`;
     allFundExpenses.forEach(e => {
-      html += `<div class="row">
-        <span class="row-name">${e.desc}</span>
-        <span style="font-size:11px;color:var(--text3);margin:0 8px">${e.date||'—'}</span>
-        <span class="row-val" style="color:var(--red)">-${fmt(e.amount)} ฿</span>
+      html += `<div style="padding:9px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:500">${e.desc}</span>
+          <span style="color:var(--red);font-weight:600">-${fmt(e.amount)} ฿</span>
+        </div>
+        <div style="display:flex;gap:12px;color:var(--text3);font-size:11px;flex-wrap:wrap">
+          ${e.date ? `<span>📅 ${e.date}</span>` : ''}
+          ${e.cat  ? `<span>🏷 ${e.cat}</span>`  : ''}
+          ${e.ils  ? `<span>₪${fmt(e.ils)}</span>` : ''}
+          ${e.usd  ? `<span>$${e.usd.toFixed(2)}</span>` : ''}
+        </div>
       </div>`;
     });
     html += `<div class="total-row"><span>סה"כ</span><span style="color:var(--red)">${fmt(allFundExpenses.reduce((s,e)=>s+e.amount,0))} ฿</span></div></div>`;
@@ -988,7 +1010,9 @@ function openModal() {
     document.getElementById('modal-income').classList.add('open');
   } else if (currentTab==='fund') {
     document.getElementById('fu-date').value=today;
-    document.getElementById('fu-amount').value='';
+    document.getElementById('fu-amount-thb').value='';
+    document.getElementById('fu-amount-ils').value='';
+    document.getElementById('fu-amount-usd').value='';
     document.getElementById('fu-desc').value='';
     document.getElementById('msg-fund').className='submit-msg';
     document.getElementById('modal-fund').classList.add('open');
@@ -1040,9 +1064,21 @@ async function submitIncome() {
 }
  
 async function submitFund() {
-  const amount=parseFloat(document.getElementById('fu-amount').value);
-  if (!amount||amount<=0) { const m=document.getElementById('msg-fund'); m.textContent='יש להזין סכום'; m.className='submit-msg err'; return; }
-  await sendToWebhook({type:'fund',description:document.getElementById('fu-desc').value,amount,currency:document.getElementById('fu-currency').value,date:document.getElementById('fu-date').value},'msg-fund',()=>{
+  const amountThb=parseFloat(document.getElementById('fu-amount-thb').value);
+  if (!amountThb||amountThb<=0) { const m=document.getElementById('msg-fund'); m.textContent='יש להזין סכום בבאט'; m.className='submit-msg err'; return; }
+  const desc=document.getElementById('fu-desc').value.trim();
+  if (!desc) { const m=document.getElementById('msg-fund'); m.textContent='יש להזין תיאור'; m.className='submit-msg err'; return; }
+  const amountIls=parseFloat(document.getElementById('fu-amount-ils').value)||0;
+  const amountUsd=parseFloat(document.getElementById('fu-amount-usd').value)||0;
+  await sendToWebhook({
+    type:'fund',
+    description: desc,
+    amountTHB: amountThb,
+    amountILS: amountIls,
+    amountUSD: amountUsd,
+    date: document.getElementById('fu-date').value,
+    category: document.getElementById('fu-cat').value
+  },'msg-fund',()=>{
     delete cache['קופת חריגות'];
     closeModal('modal-fund');
     loadFund();
