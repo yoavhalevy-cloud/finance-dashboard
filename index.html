@@ -4,1064 +4,944 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>מצב חשבון ותחזית</title>
+<title>תזרים יואב</title>
 <style>
-  :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3350;
-    --text: #e8eaf6;
-    --text-dim: #7b82a8;
-    --green: #4caf82;
-    --red: #e05c6a;
-    --yellow: #f5a623;
-    --blue: #5b8dee;
-    --purple: #9b6dff;
-    --font-main: 'Segoe UI', system-ui, sans-serif;
-    --font-mono: 'Courier New', monospace;
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f7f6f3; --surface: #ffffff; --surface2: #f0ede8;
+  --border: rgba(0,0,0,0.08); --text: #1a1a18; --text2: #6b6860; --text3: #9c9a94;
+  --green: #0F6E56; --green-bg: #E1F5EE; --red: #A32D2D; --red-bg: #FCEBEB;
+  --amber: #854F0B; --amber-bg: #FAEEDA; --blue: #185FA5; --blue-bg: #E6F1FB;
+  --purple: #5B3FA5; --purple-bg: #EEEDFE;
+  --radius: 12px; --radius-sm: 8px;
+}
+body { font-family: -apple-system,'Segoe UI',sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
  
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* HEADER */
+.header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.header-title { font-size: 15px; font-weight: 600; }
+.header-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
  
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-main);
-    min-height: 100vh;
-    padding: 24px 16px;
-  }
+/* TAB NAV */
+.tab-nav { display: flex; gap: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; position: sticky; top: 57px; z-index: 9; overflow-x: auto; scrollbar-width: none; }
+.tab-nav::-webkit-scrollbar { display: none; }
+.tab-btn { padding: 10px 16px; font-size: 13px; color: var(--text2); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; flex-shrink: 0; }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--text); font-weight: 500; }
  
-  /* ─── BANK STATUS WIDGET ─── */
-  .bank-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
+/* MONTH SELECTOR */
+.month-selector { display: flex; gap: 8px; padding: 12px 20px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.month-selector::-webkit-scrollbar { display: none; }
+.month-btn { flex-shrink: 0; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+.month-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
  
-  .bank-header h2 {
-    font-size: 1.1rem;
-    color: var(--text-dim);
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-  }
+/* MAIN */
+.main { padding: 14px 20px 80px; max-width: 720px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.loading { text-align: center; padding: 60px 20px; color: var(--text3); font-size: 14px; }
+.error-msg { background: var(--red-bg); color: var(--red); padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; margin-top: 22px; }
+.section-label:first-child { margin-top: 6px; }
  
-  .sync-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    border-radius: 6px;
-    padding: 6px 14px;
-    font-size: 0.78rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: var(--font-main);
-  }
-  .sync-btn:hover { border-color: var(--blue); color: var(--blue); }
+/* METRICS */
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.metric { background: var(--surface2); border-radius: var(--radius-sm); padding: 11px 13px; }
+.metric .m-label { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+.metric .m-value { font-size: 19px; font-weight: 600; color: var(--text); line-height: 1.1; }
+.metric .m-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.metric.good .m-value { color: var(--green); }
+.metric.warn .m-value { color: var(--amber); }
+.metric.bad .m-value { color: var(--red); }
  
-  .balance-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 28px;
-    margin-bottom: 16px;
-    position: relative;
-    overflow: hidden;
-  }
+/* CARDS */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 15px; margin-bottom: 10px; }
+.row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.row:last-child { border-bottom: none; }
+.row-name { color: var(--text2); }
+.row-val { font-weight: 500; }
+.total-row { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; border-top: 1px solid var(--border); padding-top: 9px; margin-top: 5px; }
  
-  .balance-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--blue), var(--purple));
-  }
+/* DAILY */
+.daily-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.daily-row:last-child { border-bottom: none; }
+.day-date { width: 80px; color: var(--text2); flex-shrink: 0; }
+.day-bar-track { flex: 1; height: 7px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.day-bar-fill { height: 7px; border-radius: 4px; }
+.day-amount { width: 60px; text-align: left; flex-shrink: 0; }
+.day-saving { width: 60px; text-align: left; font-size: 11px; flex-shrink: 0; }
  
-  .balance-label {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 8px;
-  }
+/* CAT BARS */
+.cat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12px; }
+.cat-label { width: 120px; color: var(--text2); text-align: right; flex-shrink: 0; }
+.cat-track { flex: 1; background: var(--surface2); border-radius: 4px; height: 9px; overflow: hidden; }
+.cat-fill { height: 9px; border-radius: 4px; }
+.cat-val { width: 60px; text-align: left; flex-shrink: 0; }
  
-  .balance-amount {
-    font-size: 2.6rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    margin-bottom: 6px;
-  }
+/* TAGS */
+.tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 99px; margin-left: 5px; font-weight: 500; }
+.tag-media { background: var(--blue-bg); color: var(--blue); }
+.tag-device { background: var(--purple-bg); color: var(--purple); }
+.tag-tax { background: var(--amber-bg); color: var(--amber); }
+.tag-save { background: var(--green-bg); color: var(--green); }
+.tag-transport { background: var(--amber-bg); color: var(--amber); }
+.tag-debt { background: var(--red-bg); color: var(--red); }
  
-  .balance-amount.positive { color: var(--green); }
-  .balance-amount.negative { color: var(--red); }
-  .balance-amount.warning { color: var(--yellow); }
+/* BADGE */
+.badge { display: inline-flex; align-items: center; font-size: 11px; padding: 3px 9px; border-radius: 99px; }
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+.badge-amber { background: var(--amber-bg); color: var(--amber); }
  
-  .balance-meta {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-  }
+/* STATUS BADGE */
+.status { font-size: 11px; padding: 2px 8px; border-radius: 99px; display: inline-block; }
+.status-ok { background: var(--green-bg); color: var(--green); }
+.status-warn { background: var(--amber-bg); color: var(--amber); }
+.status-bad { background: var(--red-bg); color: var(--red); }
  
-  .balance-meta span { display: flex; align-items: center; gap: 4px; }
+/* FAB */
+.add-btn { position: fixed; bottom: 24px; left: 24px; width: 50px; height: 50px; border-radius: 50%; background: var(--text); color: #fff; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.2); z-index: 100; display: flex; align-items: center; justify-content: center; }
  
-  /* Editable input */
-  .edit-balance-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-  }
+/* MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: flex-end; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+.modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+.form-row { margin-bottom: 10px; }
+.form-row label { display: block; font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+.form-row input, .form-row select { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--surface2); color: var(--text); }
+.form-row input:focus, .form-row select:focus { outline: none; border-color: var(--text); }
+.form-row .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.form-actions { display: flex; gap: 8px; margin-top: 14px; }
+.btn-primary { flex: 1; padding: 11px; background: var(--text); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-cancel { padding: 11px 18px; background: var(--surface2); color: var(--text2); border: none; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; }
+.submit-msg { font-size: 12px; text-align: center; padding: 7px; border-radius: var(--radius-sm); margin-top: 7px; display: none; }
+.submit-msg.ok { background: var(--green-bg); color: var(--green); display: block; }
+.submit-msg.err { background: var(--red-bg); color: var(--red); display: block; }
  
-  .edit-balance-row label {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
+/* FUND BAR */
+.fund-bar-wrap { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 10px; }
+.fund-track { width: 100%; height: 10px; background: var(--border); border-radius: 6px; overflow: hidden; margin: 6px 0; }
+.fund-fill-g { height: 10px; border-radius: 6px; background: var(--green); }
+.fund-fill-r { height: 10px; border-radius: 6px; background: var(--red); }
  
-  .edit-balance-row input {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    font-family: var(--font-mono);
-    width: 140px;
-    text-align: left;
-    direction: ltr;
-  }
+/* ── BANK TAB STYLES ── */
+.bank-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 12px; position: relative; overflow: hidden; }
+.bank-card::before { content:''; position:absolute; top:0;left:0;right:0; height:3px; background: linear-gradient(90deg, var(--blue), var(--purple)); }
+.bank-balance { font-size: 2.2rem; font-weight: 700; line-height: 1.1; margin: 6px 0 4px; }
+.bank-balance.pos { color: var(--green); }
+.bank-balance.warn { color: var(--amber); }
+.bank-balance.neg { color: var(--red); }
+.bank-meta { font-size: 11px; color: var(--text3); display: flex; gap: 14px; flex-wrap: wrap; }
+.bank-edit-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.bank-edit-row label { font-size: 11px; color: var(--text3); white-space: nowrap; }
+.bank-edit-row input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 13px; width: 120px; direction: ltr; text-align: left; }
+.bank-edit-row input:focus { outline: none; border-color: var(--text); }
+.bank-update-btn { padding: 7px 14px; background: var(--blue); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.sync-btn { padding: 5px 12px; background: transparent; border: 1px solid var(--border); border-radius: 99px; font-size: 11px; color: var(--text2); cursor: pointer; }
+.sync-btn:hover { border-color: var(--blue); color: var(--blue); }
  
-  .edit-balance-row input:focus {
-    outline: none;
-    border-color: var(--blue);
-  }
+.alert-card { border-radius: var(--radius-sm); padding: 11px 14px; margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start; font-size: 12px; line-height: 1.5; }
+.alert-card.warn { background: var(--red-bg); color: var(--red); }
+.alert-card.ok { background: var(--green-bg); color: var(--green); }
+.alert-card.amber { background: var(--amber-bg); color: var(--amber); }
+.alert-icon { font-size: 1rem; flex-shrink: 0; }
+.alert-body h4 { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+.alert-body p { font-size: 11px; opacity: 0.85; }
  
-  .update-btn {
-    background: var(--blue);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 0.82rem;
-    cursor: pointer;
-    font-family: var(--font-main);
-    transition: opacity 0.2s;
-  }
-  .update-btn:hover { opacity: 0.85; }
+.forecast-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
+.ftoggle { padding: 4px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); font-size: 11px; cursor: pointer; }
+.ftoggle.active { background: var(--text); color: #fff; border-color: var(--text); }
  
-  /* ─── METRICS ROW ─── */
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
-  }
+.forecast-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
+.fc-row { display: grid; grid-template-columns: 68px 1fr auto auto; gap: 8px; align-items: center; padding: 9px 13px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.fc-row:last-child { border-bottom: none; }
+.fc-row.fc-header { background: var(--surface2); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+.fc-row.fc-sep { background: var(--surface2); grid-template-columns: 1fr; font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; padding: 5px 13px; }
+.fc-row.fc-income { border-right: 3px solid var(--green); }
+.fc-row.fc-expense { border-right: 3px solid var(--red); }
+.fc-row.fc-savings { border-right: 3px solid var(--purple); }
+.fc-date { color: var(--text3); }
+.fc-pos { color: var(--green); font-weight: 600; }
+.fc-neg { color: var(--red); font-weight: 600; }
+.fc-sav { color: var(--purple); font-weight: 600; }
+.fc-bal { font-size: 11px; font-family: monospace; }
  
-  @media (max-width: 600px) {
-    .metrics-grid { grid-template-columns: 1fr 1fr; }
-  }
+.income-evt-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; gap: 8px; }
+.income-evt-row:last-child { border-bottom: none; }
+.income-evt-name { flex: 1; color: var(--text); }
+.income-evt-date { color: var(--text3); font-size: 11px; }
+.income-evt-amt { color: var(--green); font-weight: 600; }
  
-  .metric-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    text-align: center;
-  }
+.od-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; font-size: 12px; border-bottom: 1px solid var(--border); }
+.od-row:last-child { border-bottom: none; }
+.od-label { color: var(--text2); }
+.od-val { font-weight: 600; }
+.od-val.red { color: var(--red); }
+.od-val.amber { color: var(--amber); }
  
-  .metric-value {
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
+.ctag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 99px; margin-right: 4px; font-weight: 500; }
+.ctag-income { background: var(--green-bg); color: var(--green); }
+.ctag-expense { background: var(--red-bg); color: var(--red); }
+.ctag-savings { background: var(--purple-bg); color: var(--purple); }
+.ctag-maybe { background: var(--amber-bg); color: var(--amber); border: 1px dashed var(--amber); }
  
-  .metric-label {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    line-height: 1.3;
-  }
- 
-  /* ─── FORECAST SECTION ─── */
-  .section-title {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
- 
-  .section-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
- 
-  /* ─── FORECAST TABLE ─── */
-  .forecast-table {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    overflow: hidden;
-    margin-bottom: 24px;
-  }
- 
-  .forecast-row {
-    display: grid;
-    grid-template-columns: 100px 1fr auto auto;
-    gap: 12px;
-    align-items: center;
-    padding: 13px 20px;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.85rem;
-  }
- 
-  .forecast-row:last-child { border-bottom: none; }
- 
-  .forecast-row.header {
-    background: var(--surface2);
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
- 
-  .forecast-row.income { border-right: 3px solid var(--green); }
-  .forecast-row.expense { border-right: 3px solid var(--red); }
-  .forecast-row.savings { border-right: 3px solid var(--purple); }
-  .forecast-row.balance-row { border-right: 3px solid var(--blue); background: rgba(91,141,238,0.05); }
- 
-  .forecast-row.separator {
-    background: var(--surface2);
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 6px 20px;
-    grid-template-columns: 1fr;
-  }
- 
-  .tag {
-    display: inline-block;
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    border-radius: 20px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .tag.income { background: rgba(76,175,130,0.15); color: var(--green); }
-  .tag.expense { background: rgba(224,92,106,0.15); color: var(--red); }
-  .tag.savings { background: rgba(155,109,255,0.15); color: var(--purple); }
-  .tag.bonus { background: rgba(245,166,35,0.15); color: var(--yellow); }
-  .tag.conditional { background: rgba(245,166,35,0.08); color: var(--yellow); border: 1px dashed var(--yellow); }
- 
-  .amount-positive { color: var(--green); font-weight: 600; }
-  .amount-negative { color: var(--red); font-weight: 600; }
-  .amount-savings { color: var(--purple); font-weight: 600; }
- 
-  .date-col { color: var(--text-dim); font-size: 0.78rem; }
- 
-  /* ─── CHART BAR ─── */
-  .forecast-chart {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 24px;
-    margin-bottom: 24px;
-  }
- 
-  .chart-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
- 
-  .chart-label {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    width: 60px;
-    text-align: right;
-    flex-shrink: 0;
-  }
- 
-  .chart-bar-wrap {
-    flex: 1;
-    background: var(--surface2);
-    border-radius: 4px;
-    height: 22px;
-    position: relative;
-    overflow: visible;
-  }
- 
-  .chart-bar {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.6s ease;
-    position: relative;
-    min-width: 2px;
-  }
- 
-  .chart-bar.pos { background: linear-gradient(90deg, var(--green), #6dd4a8); }
-  .chart-bar.neg { background: linear-gradient(90deg, var(--red), #e88a93); }
- 
-  .chart-value {
-    font-size: 0.73rem;
-    font-weight: 600;
-    margin-right: 8px; /* RTL: left side */
-    white-space: nowrap;
-    color: var(--text);
-  }
- 
-  /* zero line */
-  .zero-line {
-    position: absolute;
-    top: -4px;
-    bottom: -4px;
-    width: 2px;
-    background: var(--border);
-    pointer-events: none;
-  }
- 
-  /* ─── INCOME FORECAST SECTION ─── */
-  .income-forecast {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 20px;
-    margin-bottom: 24px;
-  }
- 
-  .income-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    gap: 12px;
-  }
-  .income-row:last-child { border-bottom: none; }
- 
-  .income-source {
-    font-size: 0.85rem;
-    color: var(--text);
-    flex: 1;
-  }
- 
-  .income-date {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-  }
- 
-  .income-amount {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--green);
-    font-family: var(--font-mono);
-  }
- 
-  /* ─── OVERDRAFT WARNING ─── */
-  .warning-card {
-    background: rgba(224,92,106,0.08);
-    border: 1px solid rgba(224,92,106,0.3);
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 16px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-  }
- 
-  .warning-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
- 
-  .warning-text h4 {
-    font-size: 0.85rem;
-    color: var(--red);
-    margin-bottom: 4px;
-  }
- 
-  .warning-text p {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    line-height: 1.5;
-  }
- 
-  .good-card {
-    background: rgba(76,175,130,0.08);
-    border: 1px solid rgba(76,175,130,0.3);
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 16px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-  }
- 
-  .good-text h4 {
-    font-size: 0.85rem;
-    color: var(--green);
-    margin-bottom: 4px;
-  }
- 
-  .good-text p {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    line-height: 1.5;
-  }
- 
-  /* ─── HORIZON TOGGLE ─── */
-  .toggle-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-  }
- 
-  .toggle-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    border-radius: 20px;
-    padding: 5px 14px;
-    font-size: 0.78rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-family: var(--font-main);
-  }
- 
-  .toggle-btn.active {
-    background: var(--blue);
-    border-color: var(--blue);
-    color: white;
-  }
- 
-  /* ─── OVERDRAFT COST ─── */
-  .overdraft-meter {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 20px;
-    margin-bottom: 24px;
-  }
- 
-  .od-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    font-size: 0.83rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .od-row:last-child { border-bottom: none; }
-  .od-label { color: var(--text-dim); }
-  .od-value { font-weight: 600; font-family: var(--font-mono); }
-  .od-value.red { color: var(--red); }
-  .od-value.yellow { color: var(--yellow); }
- 
-  /* Timestamp */
-  .last-updated {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-align: center;
-    margin-top: 24px;
-    opacity: 0.6;
-  }
+@media (max-width: 480px) {
+  .header { padding: 10px 14px; }
+  .tab-nav { padding: 0 14px; }
+  .month-selector { padding: 10px 14px 0; }
+  .main { padding: 12px 14px 80px; }
+  .day-saving { display: none; }
+  .metric .m-value { font-size: 17px; }
+  .fc-row { grid-template-columns: 56px 1fr auto auto; gap: 5px; }
+}
 </style>
 </head>
 <body>
  
-<!-- ─── BANK STATUS ─── -->
-<div class="bank-header">
-  <h2>🏦 מצב חשבון בנק</h2>
-  <button class="sync-btn" onclick="syncFromSheet()">↻ רענן מגיליון</button>
-</div>
- 
-<div class="balance-card">
-  <div class="balance-label">יתרת עו"ש — בנק לאומי</div>
-  <div class="balance-amount" id="mainBalance">...</div>
-  <div class="balance-meta">
-    <span id="overdraftUsed">—</span>
-    <span id="overdraftFree">—</span>
-    <span id="lastSyncTime">לא סונכרן</span>
+<div class="header">
+  <div>
+    <div class="header-title">תזרים יואב</div>
+    <div class="header-sub" id="last-updated">טוען...</div>
   </div>
-  <div class="edit-balance-row">
-    <label>עדכון ידני:</label>
-    <input type="number" id="manualBalanceInput" placeholder="7352" step="1" />
-    <button class="update-btn" onclick="updateBalance()">עדכן</button>
+  <div id="header-badge"></div>
+</div>
+ 
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('expenses')">💸 תזרים</button>
+  <button class="tab-btn" onclick="switchTab('income')">💼 הכנסות</button>
+  <button class="tab-btn" onclick="switchTab('fund')">🏦 קופת חריגות</button>
+  <button class="tab-btn" onclick="switchTab('bank')">🏛 מצב חשבון</button>
+</div>
+ 
+<!-- TAB: תזרים -->
+<div id="tab-expenses" class="tab-content active">
+  <div class="month-selector" id="month-selector"></div>
+  <div class="main" id="expenses-content"><div class="loading">טוען...</div></div>
+</div>
+ 
+<!-- TAB: הכנסות -->
+<div id="tab-income" class="tab-content">
+  <div class="main" id="income-content"><div class="loading">טוען...</div></div>
+</div>
+ 
+<!-- TAB: קופת חריגות -->
+<div id="tab-fund" class="tab-content">
+  <div class="main" id="fund-content"><div class="loading">טוען...</div></div>
+</div>
+ 
+<!-- TAB: מצב חשבון -->
+<div id="tab-bank" class="tab-content">
+  <div class="main" id="bank-content"><div class="loading">טוען...</div></div>
+</div>
+ 
+<!-- FAB -->
+<button class="add-btn" id="fab" onclick="openModal()" title="הוסף">+</button>
+ 
+<!-- MODAL הוצאה -->
+<div class="modal-overlay" id="modal-expense" onclick="closeModalOutside(event,'modal-expense')">
+  <div class="modal">
+    <h3>הוסף הוצאה</h3>
+    <div class="form-row"><label>קטגוריה</label>
+      <select id="f-cat">
+        <option>אוכל ושתייה</option><option>תחבורה</option>
+        <option>שונות יומי</option><option>בילויים וחברה</option>
+        <option>קניות</option><option>מיסים וחובות</option>
+      </select></div>
+    <div class="form-row"><label>תאריך</label><input type="date" id="f-date"></div>
+    <div class="form-row"><label>תיאור (אופציונלי)</label><input type="text" id="f-desc" placeholder="לדוגמה: ארוחת צהריים"></div>
+    <div class="form-row"><div class="two">
+      <div><label>סכום</label><input type="number" id="f-amount" inputmode="decimal"></div>
+      <div><label>מטבע</label><select id="f-currency"><option value="THB">฿ באט</option><option value="ILS">₪ שקל</option><option value="USD">$ דולר</option></select></div>
+    </div></div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-expense')">ביטול</button>
+      <button class="btn-primary" onclick="submitExpense()">הוסף</button>
+    </div>
+    <div class="submit-msg" id="msg-expense"></div>
   </div>
 </div>
  
-<!-- Metrics -->
-<div class="metrics-grid">
-  <div class="metric-card">
-    <div class="metric-value" id="metricDaysUntilSalary" style="color: var(--blue)">—</div>
-    <div class="metric-label">ימים עד משכורת</div>
+<!-- MODAL הכנסה -->
+<div class="modal-overlay" id="modal-income" onclick="closeModalOutside(event,'modal-income')">
+  <div class="modal">
+    <h3>הוסף הכנסה / פרויקט</h3>
+    <div class="form-row"><label>שם פרויקט / לקוח</label><input type="text" id="i-name" placeholder="לדוגמה: עיצוב לוגו - חברה X"></div>
+    <div class="form-row"><label>סוג עבודה</label>
+      <select id="i-type">
+        <option value="עיצוב">עיצוב</option><option value="פיתוח">פיתוח</option>
+        <option value="ייעוץ">ייעוץ</option><option value="שיווק">שיווק</option>
+        <option value="אחר">אחר</option>
+      </select></div>
+    <div class="form-row"><div class="two">
+      <div><label>סכום</label><input type="number" id="i-amount" inputmode="decimal"></div>
+      <div><label>מטבע</label><select id="i-currency"><option value="ILS">₪ שקל</option><option value="USD">$ דולר</option><option value="THB">฿ באט</option></select></div>
+    </div></div>
+    <div class="form-row"><div class="two">
+      <div><label>תחילת עבודה</label><input type="date" id="i-start"></div>
+      <div><label>סיום עבודה</label><input type="date" id="i-end"></div>
+    </div></div>
+    <div class="form-row"><div class="two">
+      <div><label>יצאה חשבונית?</label>
+        <select id="i-invoice"><option value="false">לא</option><option value="true">כן</option></select></div>
+      <div><label>שולם?</label>
+        <select id="i-paid"><option value="false">לא</option><option value="true">כן</option></select></div>
+    </div></div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-income')">ביטול</button>
+      <button class="btn-primary" onclick="submitIncome()">הוסף</button>
+    </div>
+    <div class="submit-msg" id="msg-income"></div>
   </div>
-  <div class="metric-card">
-    <div class="metric-value" id="metricFixedOutgoing" style="color: var(--red)">—</div>
-    <div class="metric-label">קבועות שנותרו<br>לשלם החודש</div>
+</div>
+ 
+<!-- MODAL קופת חריגות -->
+<div class="modal-overlay" id="modal-fund" onclick="closeModalOutside(event,'modal-fund')">
+  <div class="modal">
+    <h3>הוסף הוצאה חריגה</h3>
+    <div class="form-row"><label>תיאור</label><input type="text" id="fu-desc" placeholder="לדוגמה: טיסה לתאילנד"></div>
+    <div class="form-row"><label>תאריך</label><input type="date" id="fu-date"></div>
+    <div class="form-row"><div class="two">
+      <div><label>סכום</label><input type="number" id="fu-amount" inputmode="decimal"></div>
+      <div><label>מטבע</label><select id="fu-currency"><option value="THB">฿ באט</option><option value="ILS">₪ שקל</option><option value="USD">$ דולר</option></select></div>
+    </div></div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-fund')">ביטול</button>
+      <button class="btn-primary" onclick="submitFund()">הוסף</button>
+    </div>
+    <div class="submit-msg" id="msg-fund"></div>
   </div>
-  <div class="metric-card">
-    <div class="metric-value" id="metricProjectedBalance" style="color: var(--yellow)">—</div>
-    <div class="metric-label">יתרה צפויה<br>סוף החודש</div>
-  </div>
 </div>
- 
-<!-- ─── ALERTS ─── -->
-<div id="alertsContainer"></div>
- 
-<!-- ─── INCOME FORECAST ─── -->
-<div class="section-title">📥 צפי הכנסות קרובות</div>
- 
-<div class="income-forecast" id="incomeForecastContainer">
-  <!-- filled by JS -->
-</div>
- 
-<!-- ─── HORIZON TOGGLE ─── -->
-<div class="section-title">📊 תחזית תזרים</div>
- 
-<div class="toggle-row">
-  <button class="toggle-btn active" onclick="setHorizon(30, this)">30 יום</button>
-  <button class="toggle-btn" onclick="setHorizon(60, this)">60 יום</button>
-  <button class="toggle-btn" onclick="setHorizon(90, this)">90 יום</button>
-</div>
- 
-<!-- Forecast visual chart -->
-<div class="forecast-chart">
-  <div id="chartContainer"><!-- filled by JS --></div>
-</div>
- 
-<!-- Forecast table -->
-<div class="section-title">📋 אירועים צפויים</div>
-<div class="forecast-table" id="forecastTableContainer">
-  <!-- filled by JS -->
-</div>
- 
-<!-- ─── OVERDRAFT COST ─── -->
-<div class="section-title">⚠️ עלות אוברדראפט</div>
- 
-<div class="overdraft-meter" id="overdraftCostContainer">
-  <!-- filled by JS -->
-</div>
- 
-<div class="last-updated" id="lastUpdatedText">—</div>
  
 <script>
-// ══════════════════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════════════════
+const SHEET_ID  = '1BZYgLZE6fLV3nZW0yd3ea7mU5FtPflN0Wbv8IJf61xw';
+const API_KEY   = 'AIzaSyCipZ-FbAaLYHaDMiKeNpqmVz7AI7QwrQg';
+const WEBHOOK   = 'https://script.google.com/macros/s/AKfycbwz2BW_xN8dHgc-_DLLEBoOmLP3FLnqHVw7lFMyWMZLJVV8tJ71iL6VQVqcD8I-YhI/exec';
+const DAILY_BUDGET = 1300;
+const VAT_RATE = 0.18;
  
-const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwz2BW_xN8dHgc-_DLLEBoOmLP3FLnqHVw7lFMyWMZLJVV8tJ71iL6VQVqcD8I-YhI/exec';
-const OVERDRAFT_LIMIT = 50000; // ₪
-const OVERDRAFT_RATE  = 0.10;  // 10% שנתי
- 
-// הוצאות קבועות מדויקות לפי מה שסיכמנו
-const FIXED_EXPENSES = [
-  { name: 'ביטוח לאומי שוטף',   amount: 960,  day: 1,  until: null,           type: 'expense' },
-  { name: 'פריסת ביטוח לאומי',  amount: 2100, day: 8,  until: '2027-05-31',   type: 'expense' },
-  { name: 'הסדר חוב ביטוח לאומי', amount: 280, day: 18, until: '2026-10-31',  type: 'expense' },
-  { name: 'החזר הלוואה מס הכנסה', amount: 1100, day: 1, until: null,          type: 'expense' },
-  { name: 'מנויים ומכשירים',     amount: 729,  day: 1,  until: null,           type: 'expense' },
-  { name: 'שכירות אופנוע',       amount: 496,  day: 1,  until: null,           type: 'expense' },
-  { name: 'פנסיה + השתלמות',     amount: 2000, day: 15, until: null,           type: 'savings' },
+const MONTHS = [
+  'מאי 2026','יוני 2026','יולי 2026','אוגוסט 2026',
+  'ספטמבר 2026','אוקטובר 2026','נובמבר 2026','דצמבר 2026',
+  'ינואר 2027','פברואר 2027','מרץ 2027','אפריל 2027'
 ];
  
-// הכנסות ידועות
+// הוצאות קבועות — מעודכן לפי מה שסיכמנו
+const FIXED = [
+  { name: 'מקבוק אייר M4',              amount: 212,  tag: 'tag-device',    label: 'מכשיר'  },
+  { name: 'אייפון 17 פרו',               amount: 279,  tag: 'tag-device',    label: 'מכשיר'  },
+  { name: 'אחסון ענן',                   amount: 39,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'סלולר',                       amount: 26,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'מידג׳ורני',                  amount: 27,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'צ׳אט ג׳יפיטי',              amount: 67,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'קלוד',                        amount: 58,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'ספוטיפיי',                    amount: 23,   tag: 'tag-media',     label: 'מדיה'   },
+  { name: 'שכירות אופנוע',               amount: 492,  tag: 'tag-transport', label: 'תחבורה' },
+  { name: 'ביטוח לאומי שוטף',            amount: 960,  tag: 'tag-tax',       label: 'מיסים', day: 1  },
+  { name: 'פריסת ביטוח לאומי',           amount: 2100, tag: 'tag-debt',      label: 'חוב',   day: 8,  untilIdx: 11, untilDate: '2027-05-31' },
+  { name: 'הסדר חוב ביטוח לאומי',        amount: 280,  tag: 'tag-debt',      label: 'חוב',   day: 18, untilIdx: 4,  untilDate: '2026-10-31' },
+  { name: 'החזר הלוואה מס הכנסה',        amount: 1100, tag: 'tag-debt',      label: 'חוב'    },
+  { name: 'קרן השתלמות',                 amount: 1000, tag: 'tag-save',      label: 'חיסכון', isSaving: true },
+  { name: 'קרן פנסיה',                   amount: 1000, tag: 'tag-save',      label: 'חיסכון', isSaving: true },
+];
+ 
+// הוצאות קבועות לתחזית בנק (עם תאריכים מדויקים)
+const FIXED_FOR_FORECAST = [
+  { name: 'ביטוח לאומי שוטף',   amount: 960,  day: 1,  until: null          },
+  { name: 'פריסת ביטוח לאומי',  amount: 2100, day: 8,  until: '2027-05-31'  },
+  { name: 'הסדר חוב ביט"ל',     amount: 280,  day: 18, until: '2026-10-31'  },
+  { name: 'החזר הלוואה מה"כ',   amount: 1100, day: 1,  until: null          },
+  { name: 'מנויים ומכשירים',    amount: 729,  day: 1,  until: null          },
+  { name: 'שכירות אופנוע',      amount: 492,  day: 1,  until: null          },
+  { name: 'פנסיה + השתלמות',    amount: 2000, day: 15, until: null, isSaving: true },
+];
+ 
 const INCOME_EVENTS = [
-  { name: 'משכורת ($3,500)',   date: '2026-10-01', amount: 10500, currency: '₪', certain: true  },
-  { name: 'בונוס (~$500)',     date: '2026-07-08', amount: 1750,  currency: '₪', certain: false },
-  { name: 'בונוס (~$500)',     date: '2026-07-22', amount: 1750,  currency: '₪', certain: false },
-  { name: 'בונוס (~$500)',     date: '2026-08-05', amount: 1750,  currency: '₪', certain: false },
-  { name: 'בונוס (~$500)',     date: '2026-08-19', amount: 1750,  currency: '₪', certain: false },
-  { name: 'בונוס (~$500)',     date: '2026-09-02', amount: 1750,  currency: '₪', certain: false },
-  { name: 'בונוס (~$500)',     date: '2026-09-16', amount: 1750,  currency: '₪', certain: false },
-  { name: 'בונוס (~$500)',     date: '2026-09-30', amount: 1750,  currency: '₪', certain: false },
+  { name: 'משכורת ($3,500)', date: '2026-10-01', amount: 10500, certain: true  },
+  { name: 'בונוס (~$500)',   date: '2026-07-08', amount: 1750,  certain: false },
+  { name: 'בונוס (~$500)',   date: '2026-07-22', amount: 1750,  certain: false },
+  { name: 'בונוס (~$500)',   date: '2026-08-05', amount: 1750,  certain: false },
+  { name: 'בונוס (~$500)',   date: '2026-08-19', amount: 1750,  certain: false },
+  { name: 'בונוס (~$500)',   date: '2026-09-02', amount: 1750,  certain: false },
+  { name: 'בונוס (~$500)',   date: '2026-09-16', amount: 1750,  certain: false },
+  { name: 'בונוס (~$500)',   date: '2026-09-30', amount: 1750,  certain: false },
 ];
  
-let state = {
-  balance: 7352, // יתרה נוכחית
-  horizon: 30,
-  lastSync: null
-};
+const OVERDRAFT_LIMIT = 50000;
+const OVERDRAFT_RATE  = 0.10;
  
-// ══════════════════════════════════════════════════════
-//  HELPERS
-// ══════════════════════════════════════════════════════
+let cache = {};
+let currentTab = 'expenses';
+let currentMonthIdx = 0;
+let bankState = { balance: 7352, lastSync: null, horizon: 30 };
  
-function formatILS(n) {
-  if (n === null || n === undefined || isNaN(n)) return '—';
-  const abs = Math.abs(Math.round(n));
-  const formatted = abs.toLocaleString('he-IL');
-  return (n < 0 ? '-' : '') + '₪' + formatted;
+// ===== UTILS =====
+function fixedForMonth(idx) {
+  return FIXED.filter(e => e.untilIdx === undefined || idx <= e.untilIdx);
+}
+function parseNum(v) {
+  if (!v) return 0;
+  const n = parseFloat(String(v).replace(/[^\d.-]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+function fmt(n) { return Math.round(n).toLocaleString('he-IL'); }
+function fmtILS(n) {
+  if (isNaN(n)) return '—';
+  return (n < 0 ? '-' : '') + '₪' + Math.abs(Math.round(n)).toLocaleString('he-IL');
+}
+function toDate(s) {
+  const p = s.split('/').map(Number);
+  return new Date(p[2] < 100 ? 2000+p[2] : p[2], p[1]-1, p[0]);
+}
+function mk(label, value, sub, cls) {
+  return `<div class="metric ${cls||''}"><div class="m-label">${label}</div><div class="m-value">${value}</div><div class="m-sub">${sub||''}</div></div>`;
+}
+function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate()+n); return d; }
+function fmtDate(d) { return d.toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit'}); }
+function daysBetween(a,b) { return Math.round((b-a)/86400000); }
+ 
+async function fetchSheet(tab) {
+  if (cache[tab]) return cache[tab];
+  const url = 'https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/'+encodeURIComponent(tab)+'?key='+API_KEY;
+  const res = await fetch(url);
+  if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error((e.error&&e.error.message)||'HTTP '+res.status); }
+  const d = await res.json();
+  cache[tab] = d.values||[];
+  return cache[tab];
 }
  
-function today() { return new Date(); }
+// ===== EXPENSES TAB =====
+function processExpenses(rows) {
+  let hdr = -1;
+  for (let i=0;i<rows.length;i++) { if (rows[i].some(c=>String(c).trim()==='תאריך')) { hdr=i; break; } }
+  if (hdr===-1) return [];
+  const h = rows[hdr];
+  const ci = n => h.findIndex(c=>String(c).trim()===n);
+  const C = { day:ci('יום'), date:ci('תאריך'), cat:h.findIndex(c=>String(c).includes('קטגוריה')),
+    desc:h.findIndex(c=>String(c).includes('פירוט')), amount:ci('סכום'),
+    thb:h.findIndex(c=>String(c).includes('฿')&&String(c).includes('שווי')) };
+  if (C.date<0) C.date=2; if (C.day<0) C.day=1; if (C.cat<0) C.cat=3;
+  if (C.desc<0) C.desc=4; if (C.amount<0) C.amount=5; if (C.thb<0) C.thb=9;
  
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
+  const days = {}; let curDate=null, curDay='';
+  for (let i=hdr+1;i<rows.length;i++) {
+    const r=rows[i]; if (!r||r.length<3) continue;
+    const dc=String(r[C.date]||'').trim();
+    if (/\d{2}\/\d{2}\/\d{2,4}/.test(dc)) { curDate=dc; curDay=String(r[C.day]||'').trim(); }
+    if (!curDate) continue;
+    if (!days[curDate]) days[curDate]={date:curDate,dayName:curDay,entries:[],total:0};
+    const amt=parseNum(r[C.amount]), thb=parseNum(r[C.thb]);
+    if (amt>0) { days[curDate].entries.push({cat:String(r[C.cat]||'').trim(),desc:String(r[C.desc]||'').trim(),amt,thb}); days[curDate].total+=thb||0; }
+  }
+  return Object.values(days).sort((a,b)=>toDate(a.date)-toDate(b.date));
 }
  
-function formatDate(date) {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+function renderExpenses(days, month, monthIdx) {
+  const today=new Date(); today.setHours(23,59,59,0);
+  const fixed=fixedForMonth(monthIdx), fixedTotal=fixed.reduce((s,e)=>s+e.amount,0), income=10220;
+  const elapsed=days.filter(d=>toDate(d.date)<=today);
+  const totalSpent=elapsed.reduce((s,d)=>s+d.total,0);
+  const daysLeft=days.length-elapsed.length;
+  const daysWithExp=elapsed.filter(d=>d.total>0).length;
+  const avgDaily=daysWithExp>0?totalSpent/daysWithExp:0;
+  let savings=0; elapsed.forEach(d=>{savings+=DAILY_BUDGET-d.total;});
+ 
+  const cats={}; days.forEach(d=>d.entries.forEach(e=>{const c=e.cat||'שונות';cats[c]=(cats[c]||0)+e.thb;}));
+ 
+  const sc=savings>=0?'badge-green':'badge-red';
+  document.getElementById('header-badge').innerHTML=`<span class="badge ${sc}">קופה: ${savings>=0?'+':''}${fmt(savings)} ฿</span>`;
+  document.getElementById('last-updated').textContent='עודכן '+new Date().toLocaleDateString('he-IL');
+ 
+  let html='';
+  html+=`<div class="section-label">סיכום — ${month}</div><div class="metrics">`;
+  html+=mk('הכנסה','₪'+fmt(income),'$3,500 שכר','');
+  html+=mk('הוצאות עד היום',fmt(totalSpent)+' ฿','₪'+fmt(totalSpent*0.0897),totalSpent>elapsed.length*DAILY_BUDGET?'warn':'good');
+  html+=mk('קצב יומי',fmt(avgDaily)+' ฿','יעד: 1,300 ฿',avgDaily>DAILY_BUDGET?'warn':'good');
+  html+=mk('ימים נותרים',daysLeft+' ימים',fmt(daysLeft*DAILY_BUDGET)+' ฿','');
+  html+=mk('חיסכון נצבר',(savings>=0?'+':'')+fmt(savings)+' ฿','לקופת חריגות',savings>=0?'good':'bad');
+  html+=mk('קבועות','₪'+fmt(fixedTotal),'₪'+fmt(income-fixedTotal)+' פנוי','');
+  html+='</div>';
+ 
+  const sc2=Object.entries(cats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if (sc2.length>0) {
+    const maxC=sc2[0][1];
+    const colors={'אוכל ושתייה':'#1D9E75','שונות יומי':'#7F77DD','בילויים וחברה':'#D85A30','תחבורה':'#BA7517','קניות':'#378ADD','מיסים וחובות':'#A32D2D'};
+    html+=`<div class="section-label">לפי קטגוריה</div><div class="card">`;
+    sc2.slice(0,6).forEach(([c,v])=>{
+      const pct=Math.round(v/maxC*100), col=colors[c]||'#888780';
+      html+=`<div class="cat-row"><div class="cat-label">${c}</div><div class="cat-track"><div class="cat-fill" style="width:${pct}%;background:${col}"></div></div><div class="cat-val">${fmt(v)} ฿</div></div>`;
+    });
+    html+='</div>';
+  }
+ 
+  const withData=elapsed.filter(d=>d.total>0);
+  if (withData.length>0) {
+    const maxD=Math.max(...elapsed.map(d=>d.total),DAILY_BUDGET*1.5);
+    html+=`<div class="section-label">מעקב יומי</div><div class="card" style="max-height:280px;overflow-y:auto">`;
+    elapsed.forEach(d=>{
+      if (!d.total&&!d.entries.length) return;
+      const pct=Math.min(100,Math.round(d.total/maxD*100)), sav=DAILY_BUDGET-d.total, col=d.total>DAILY_BUDGET?'#E24B4A':'#1D9E75';
+      const savHtml=sav>=0?`<span style="color:var(--green)">+${fmt(sav)}</span>`:`<span style="color:var(--red)">${fmt(sav)}</span>`;
+      html+=`<div class="daily-row"><div class="day-date">${d.date.slice(0,5)} ${d.dayName}</div><div class="day-bar-track"><div class="day-bar-fill" style="width:${pct}%;background:${col}"></div></div><div class="day-amount">${fmt(d.total)} ฿</div><div class="day-saving">${savHtml} ฿</div></div>`;
+    });
+    html+='</div>';
+  }
+ 
+  html+=`<div class="section-label">הוצאות קבועות — ${month}</div><div class="card">`;
+  fixed.forEach(e=>{
+    const saveNote = e.isSaving ? ' <span style="font-size:10px;color:var(--green)">(חיסכון)</span>' : '';
+    const untilNote = e.untilDate ? ` <span style="font-size:10px;color:var(--text3)">עד ${e.untilDate.slice(0,7)}</span>` : '';
+    html+=`<div class="row"><span class="row-name"><span class="tag ${e.tag}">${e.label}</span>${e.name}${saveNote}${untilNote}</span><span class="row-val">₪${fmt(e.amount)}</span></div>`;
+  });
+  html+=`<div class="total-row"><span>סה"כ</span><span>₪${fmt(fixedTotal)}</span></div></div>`;
+  document.getElementById('expenses-content').innerHTML=html;
 }
  
-function daysBetween(a, b) {
-  return Math.round((b - a) / 86400000);
+async function loadExpenses(month, idx) {
+  currentMonthIdx=idx;
+  document.querySelectorAll('.month-btn').forEach(b=>b.classList.toggle('active',b.dataset.idx==idx));
+  document.getElementById('expenses-content').innerHTML='<div class="loading">טוען '+month+'...</div>';
+  try {
+    const rows=await fetchSheet(month);
+    if (!rows||rows.length<2) { document.getElementById('expenses-content').innerHTML=`<div class="error-msg">הטאב "${month}" ריק או לא קיים.</div>`; return; }
+    renderExpenses(processExpenses(rows),month,idx);
+  } catch(e) {
+    document.getElementById('expenses-content').innerHTML=`<div class="error-msg">שגיאה בטעינת "${month}":<br>${e.message}</div>`;
+  }
 }
  
-function monthKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+// ===== INCOME TAB =====
+async function loadIncome() {
+  const el=document.getElementById('income-content');
+  el.innerHTML='<div class="loading">טוען הכנסות...</div>';
+  try {
+    const rows=await fetchSheet('הכנסות ופרויקטים');
+    renderIncome(rows);
+  } catch(e) {
+    el.innerHTML=`<div class="error-msg">שגיאה בטעינת הכנסות:<br>${e.message}</div>`;
+  }
 }
  
-// ══════════════════════════════════════════════════════
-//  BUILD FORECAST EVENTS
-//  Returns array of { date, name, amount, type, certain }
-//  amount: positive = income, negative = expense
-// ══════════════════════════════════════════════════════
+function renderIncome(rows) {
+  if (!rows||rows.length<3) {
+    document.getElementById('income-content').innerHTML='<div class="section-label">הכנסות ופרויקטים</div><div class="card" style="text-align:center;padding:30px;color:var(--text3)">אין פרויקטים עדיין<br><small>לחץ + להוספת הכנסה</small></div>';
+    return;
+  }
+  let hdr=-1;
+  for (let i=0;i<rows.length;i++) { if (String(rows[i][0]).trim()==='#') { hdr=i; break; } }
+  if (hdr===-1) { document.getElementById('income-content').innerHTML='<div class="error-msg">לא נמצאה טבלת פרויקטים</div>'; return; }
  
+  const projects=[]; let totalIncome=0, totalVat=0;
+  for (let i=hdr+1;i<rows.length;i++) {
+    const r=rows[i];
+    if (!r[1]||String(r[1]).trim()==='') continue;
+    const amount=parseNum(r[5]);
+    const vat=parseNum(r[7])-amount;
+    const hasInvoice=String(r[8]||'').includes('חשבונית');
+    const paid=String(r[9]||'').includes('שולם')&&!String(r[9]||'').includes('לא');
+    projects.push({ num:r[0], name:r[1], type:r[2], start:r[3], end:r[4], amount, vat: hasInvoice?amount*VAT_RATE:0, total:parseNum(r[7]), hasInvoice, paid, status:r[8] });
+    totalIncome+=amount;
+    if (hasInvoice) totalVat+=amount*VAT_RATE;
+  }
+ 
+  let html='';
+  html+=`<div class="section-label">סיכום הכנסות</div><div class="metrics">`;
+  html+=mk('סה"כ הכנסות','₪'+fmt(totalIncome),'לפני מע"מ','good');
+  html+=mk('מע"מ לשלם','₪'+fmt(totalVat),'18% על חשבוניות','warn');
+  html+=mk('נטו אחרי מע"מ','₪'+fmt(totalIncome-totalVat),'לכיסך','');
+  html+=mk('פרויקטים',projects.length+' פרויקטים',projects.filter(p=>p.paid).length+' שולמו','');
+  html+='</div>';
+ 
+  if (projects.length>0) {
+    html+=`<div class="section-label">פרויקטים</div>`;
+    projects.forEach(p=>{
+      const statusCls=p.paid?'status-ok':p.hasInvoice?'status-warn':'status-bad';
+      const statusTxt=p.paid?'שולם':p.hasInvoice?'ממתין לתשלום':'אין חשבונית';
+      html+=`<div class="card" style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div style="font-size:14px;font-weight:500">${p.name}</div>
+          <span class="status ${statusCls}">${statusTxt}</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:12px;color:var(--text2)">
+          ${p.type?`<span>📁 ${p.type}</span>`:''}
+          ${p.start?`<span>📅 ${p.start}</span>`:''}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px">
+          <span style="color:var(--text2)">סכום: <b style="color:var(--text)">₪${fmt(p.amount)}</b></span>
+          ${p.hasInvoice?`<span style="color:var(--amber)">מע"מ: ₪${fmt(p.vat)}</span>`:'<span style="color:var(--text3)">ללא חשבונית</span>'}
+          <span style="color:var(--text2)">סה"כ: <b>₪${fmt(p.total)}</b></span>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('income-content').innerHTML=html;
+}
+ 
+// ===== FUND TAB =====
+async function loadFund() {
+  const el=document.getElementById('fund-content');
+  el.innerHTML='<div class="loading">טוען קופת חריגות...</div>';
+  try {
+    const month=MONTHS[currentMonthIdx];
+    const rows=await fetchSheet(month);
+    const days=processExpenses(rows);
+    const today=new Date(); today.setHours(23,59,59,0);
+    let savings=0;
+    days.filter(d=>toDate(d.date)<=today).forEach(d=>{savings+=DAILY_BUDGET-d.total;});
+    let fundRows=[];
+    try { fundRows=await fetchSheet('קופת חריגות'); } catch(e) {}
+    renderFund(savings, fundRows);
+  } catch(e) {
+    el.innerHTML=`<div class="error-msg">שגיאה: ${e.message}</div>`;
+  }
+}
+ 
+function renderFund(savings, rows) {
+  let fundExpenses=[], totalFundSpent=0;
+  if (rows&&rows.length>2) {
+    let hdr=-1;
+    for (let i=0;i<rows.length;i++) {
+      if (rows[i].some(c=>String(c).includes('תיאור')||String(c).includes('פריט'))) { hdr=i; break; }
+    }
+    if (hdr>-1) {
+      for (let i=hdr+1;i<rows.length;i++) {
+        const r=rows[i];
+        if (!r[0]||String(r[0]).trim()==='') continue;
+        const amt=parseNum(r[2])||parseNum(r[3])||parseNum(r[4]);
+        if (amt>0) { fundExpenses.push({desc:String(r[0]).trim(),date:r[1]||'',amount:amt}); totalFundSpent+=amt; }
+      }
+    }
+  }
+  const balance=savings-totalFundSpent;
+  const pct=savings>0?Math.min(100,Math.round(totalFundSpent/savings*100)):100;
+ 
+  let html='';
+  html+=`<div class="section-label">מצב הקופה</div>`;
+  html+=`<div class="fund-bar-wrap">
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+      <span style="color:var(--text2)">חיסכון נצבר החודש</span>
+      <span style="color:var(--green);font-weight:500">+${fmt(savings)} ฿</span>
+    </div>
+    <div class="fund-track"><div class="${balance>=0?'fund-fill-g':'fund-fill-r'}" style="width:${pct}%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:2px">
+      <span>הוצא: ${fmt(totalFundSpent)} ฿</span>
+      <span>יתרה: <b style="color:${balance>=0?'var(--green)':'var(--red)'}">${balance>=0?'+':''}${fmt(balance)} ฿</b></span>
+    </div>
+  </div>`;
+  html+=`<div class="metrics">`;
+  html+=mk('חיסכון יומי','+'+fmt(savings)+' ฿','החודש הנוכחי','good');
+  html+=mk('הוצא מהקופה',fmt(totalFundSpent)+' ฿','הוצאות חריגות',totalFundSpent>0?'warn':'');
+  html+=mk('יתרה',(balance>=0?'+':'')+fmt(balance)+' ฿','זמין לשימוש',balance>=0?'good':'bad');
+  html+='</div>';
+  if (fundExpenses.length>0) {
+    html+=`<div class="section-label">הוצאות חריגות</div><div class="card">`;
+    fundExpenses.forEach(e=>{
+      html+=`<div class="row"><span class="row-name">${e.desc}${e.date?` <span style="font-size:11px;color:var(--text3)">${e.date}</span>`:''}</span><span class="row-val">${fmt(e.amount)} ฿</span></div>`;
+    });
+    html+=`<div class="total-row"><span>סה"כ</span><span>${fmt(totalFundSpent)} ฿</span></div></div>`;
+  } else {
+    html+=`<div class="card" style="text-align:center;padding:24px;color:var(--text3);font-size:13px">אין הוצאות חריגות<br><small>לחץ + להוספת הוצאה חריגה</small></div>`;
+  }
+  document.getElementById('fund-content').innerHTML=html;
+}
+ 
+// ===== BANK TAB =====
 function buildForecastEvents(horizonDays) {
   const events = [];
-  const start  = today();
+  const start  = new Date(); start.setHours(0,0,0,0);
   const end    = addDays(start, horizonDays);
  
-  // ─ Fixed expenses ─
-  let cursor = new Date(start);
-  cursor.setDate(1); // start from first of current month
- 
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
   while (cursor <= end) {
-    const year  = cursor.getFullYear();
-    const month = cursor.getMonth();
- 
-    for (const exp of FIXED_EXPENSES) {
-      const eventDate = new Date(year, month, exp.day);
-      if (eventDate < start || eventDate > end) continue;
- 
-      // check if still active
-      if (exp.until) {
-        const untilDate = new Date(exp.until);
-        if (eventDate > untilDate) continue;
-      }
- 
-      events.push({
-        date:    eventDate,
-        name:    exp.name,
-        amount:  -exp.amount,
-        type:    exp.type,   // 'expense' or 'savings'
-        certain: true
-      });
+    const y = cursor.getFullYear(), m = cursor.getMonth();
+    for (const exp of FIXED_FOR_FORECAST) {
+      const d = new Date(y, m, exp.day);
+      if (d < start || d > end) continue;
+      if (exp.until && d > new Date(exp.until)) continue;
+      events.push({ date: d, name: exp.name, amount: -exp.amount, type: exp.isSaving ? 'savings' : 'expense', certain: true });
     }
- 
-    // next month
     cursor.setMonth(cursor.getMonth() + 1);
   }
  
-  // ─ Income events ─
   for (const inc of INCOME_EVENTS) {
     const d = new Date(inc.date);
     if (d >= start && d <= end) {
-      events.push({
-        date:    d,
-        name:    inc.name,
-        amount:  inc.amount,
-        type:    'income',
-        certain: inc.certain
-      });
+      events.push({ date: d, name: inc.name, amount: inc.amount, type: 'income', certain: inc.certain });
     }
   }
- 
-  // sort by date
-  events.sort((a, b) => a.date - b.date);
-  return events;
+  return events.sort((a,b) => a.date - b.date);
 }
  
-// ══════════════════════════════════════════════════════
-//  RUNNING BALANCE — month snapshots for chart
-// ══════════════════════════════════════════════════════
+function renderBank() {
+  const el = document.getElementById('bank-content');
+  const bal = bankState.balance;
+  const today = new Date(); today.setHours(0,0,0,0);
  
-function buildMonthlySnapshots(events, horizonDays) {
-  const snapshots = [];
-  let running = state.balance;
-  const start = today();
- 
-  // group by month
-  const months = {};
-  for (const ev of events) {
-    const k = monthKey(ev.date);
-    if (!months[k]) months[k] = { label: '', income: 0, outgoing: 0, savings: 0, events: [] };
-    months[k].events.push(ev);
-    if (ev.type === 'income')   months[k].income   += ev.amount;
-    else if (ev.type === 'savings') months[k].savings += Math.abs(ev.amount);
-    else                        months[k].outgoing += Math.abs(ev.amount);
-  }
- 
-  let prev = running;
-  for (const [k, m] of Object.entries(months)) {
-    const [y, mo] = k.split('-').map(Number);
-    const label = new Date(y, mo-1, 1).toLocaleDateString('he-IL', { month: 'short', year: '2-digit' });
-    const net = m.income - m.outgoing - m.savings;
-    running = prev + net;
-    snapshots.push({ label, income: m.income, outgoing: m.outgoing, savings: m.savings, endBalance: running });
-    prev = running;
-  }
- 
-  return snapshots;
-}
- 
-// ══════════════════════════════════════════════════════
-//  RENDER MAIN BALANCE
-// ══════════════════════════════════════════════════════
- 
-function renderBalance() {
-  const bal   = state.balance;
-  const el    = document.getElementById('mainBalance');
-  const text  = formatILS(bal);
- 
-  if (bal > 5000) {
-    el.textContent = text;
-    el.className   = 'balance-amount positive';
-  } else if (bal >= 0) {
-    el.textContent = text;
-    el.className   = 'balance-amount warning';
-  } else {
-    el.textContent = text;
-    el.className   = 'balance-amount negative';
-  }
- 
-  const usedOD  = bal < 0 ? Math.abs(bal) : 0;
-  const freeOD  = OVERDRAFT_LIMIT - usedOD;
-  document.getElementById('overdraftUsed').textContent = `מינוס בשימוש: ${formatILS(usedOD)}`;
-  document.getElementById('overdraftFree').textContent = `מסגרת פנויה: ${formatILS(freeOD)}`;
- 
-  if (state.lastSync) {
-    document.getElementById('lastSyncTime').textContent = 'סונכרן: ' + state.lastSync;
-  }
-}
- 
-// ══════════════════════════════════════════════════════
-//  RENDER METRICS
-// ══════════════════════════════════════════════════════
- 
-function renderMetrics() {
-  const t = today();
- 
-  // days until salary (1 Oct 2026)
-  const salaryDate   = new Date('2026-10-01');
-  const daysToSalary = daysBetween(t, salaryDate);
-  document.getElementById('metricDaysUntilSalary').textContent =
-    daysToSalary > 0 ? daysToSalary : '✓';
- 
-  // fixed still remaining this month
-  const thisMonth = t.getMonth();
-  const thisYear  = t.getFullYear();
-  let remainingFixed = 0;
-  for (const exp of FIXED_EXPENSES) {
-    const expDate = new Date(thisYear, thisMonth, exp.day);
-    if (expDate >= t) {
-      if (exp.until && new Date(exp.until) < expDate) continue;
-      remainingFixed += exp.amount;
-    }
-  }
-  document.getElementById('metricFixedOutgoing').textContent = formatILS(remainingFixed);
- 
-  // projected end-of-month balance
-  const events = buildForecastEvents(daysBetween(t, new Date(thisYear, thisMonth+1, 0)));
-  let proj = state.balance;
-  for (const ev of events) proj += ev.amount;
-  const projEl = document.getElementById('metricProjectedBalance');
-  projEl.textContent = formatILS(proj);
-  projEl.style.color = proj < 0 ? 'var(--red)' : proj < 3000 ? 'var(--yellow)' : 'var(--green)';
-}
- 
-// ══════════════════════════════════════════════════════
-//  RENDER ALERTS
-// ══════════════════════════════════════════════════════
- 
-function renderAlerts() {
-  const container = document.getElementById('alertsContainer');
-  container.innerHTML = '';
- 
-  const events = buildForecastEvents(90);
-  let running = state.balance;
-  let lowestBalance = state.balance;
-  let lowestDate    = today();
- 
-  for (const ev of events) {
-    running += ev.amount;
-    if (running < lowestBalance) {
-      lowestBalance = running;
-      lowestDate    = ev.date;
-    }
-  }
- 
-  if (lowestBalance < -20000) {
-    container.innerHTML = `
-      <div class="warning-card">
-        <div class="warning-icon">🚨</div>
-        <div class="warning-text">
-          <h4>אזהרה: מינוס עמוק צפוי</h4>
-          <p>לפי התחזית, ב-${formatDate(lowestDate)} היתרה עלולה להגיע ל-${formatILS(lowestBalance)}.
-          זה ${formatILS(Math.abs(lowestBalance))} בתוך המסגרת. ריבית יומית: ~${formatILS(Math.abs(lowestBalance) * OVERDRAFT_RATE / 365)} ₪.</p>
-        </div>
-      </div>`;
-  } else if (lowestBalance < 0) {
-    container.innerHTML = `
-      <div class="warning-card">
-        <div class="warning-icon">⚠️</div>
-        <div class="warning-text">
-          <h4>צפוי לרדת למינוס</h4>
-          <p>לפי התחזית, ב-${formatDate(lowestDate)} היתרה תרד ל-${formatILS(lowestBalance)}. בתוך המסגרת, אבל עולה כסף.</p>
-        </div>
-      </div>`;
-  } else {
-    container.innerHTML = `
-      <div class="good-card">
-        <div class="warning-icon">✅</div>
-        <div class="good-text">
-          <h4>תחזית תקינה ל-90 יום</h4>
-          <p>לפי הנתונים הידועים, החשבון נשאר בפלוס. יתרה מינימלית צפויה: ${formatILS(lowestBalance)}.</p>
-        </div>
-      </div>`;
-  }
-}
- 
-// ══════════════════════════════════════════════════════
-//  RENDER INCOME FORECAST
-// ══════════════════════════════════════════════════════
- 
-function renderIncomeForecast() {
-  const container = document.getElementById('incomeForecastContainer');
-  const upcoming  = INCOME_EVENTS
-    .filter(e => new Date(e.date) >= today())
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-    .slice(0, 8);
- 
-  if (upcoming.length === 0) {
-    container.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:0.82rem;text-align:center">אין הכנסות מתוכננות ב-90 הימים הקרובים</div>';
-    return;
-  }
- 
-  container.innerHTML = upcoming.map(inc => `
-    <div class="income-row">
-      <div class="income-source">
-        ${inc.name}
-        <span class="tag ${inc.certain ? 'income' : 'conditional'}" style="margin-right:6px">
-          ${inc.certain ? 'ודאי' : 'צפוי'}
-        </span>
-      </div>
-      <div class="income-date">${formatDate(inc.date)}</div>
-      <div class="income-amount">+${formatILS(inc.amount)}</div>
-    </div>
-  `).join('');
-}
- 
-// ══════════════════════════════════════════════════════
-//  RENDER CHART
-// ══════════════════════════════════════════════════════
- 
-function renderChart() {
-  const events    = buildForecastEvents(state.horizon);
-  const snapshots = buildMonthlySnapshots(events, state.horizon);
-  const container = document.getElementById('chartContainer');
- 
-  if (snapshots.length === 0) {
-    container.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem;text-align:center;padding:16px">אין נתונים</div>';
-    return;
-  }
- 
-  const maxAbs = Math.max(...snapshots.map(s => Math.abs(s.endBalance)), 1);
-  const zeroPos = state.balance >= 0 ? 0 : (Math.abs(state.balance) / maxAbs) * 100;
- 
-  container.innerHTML = snapshots.map(s => {
-    const pct  = (Math.abs(s.endBalance) / maxAbs) * 100;
-    const isPos = s.endBalance >= 0;
-    const color = isPos ? 'pos' : 'neg';
- 
-    return `
-      <div class="chart-row">
-        <div class="chart-label">${s.label}</div>
-        <div class="chart-bar-wrap">
-          <div class="zero-line" style="right: ${zeroPos}%"></div>
-          <div class="chart-bar ${color}" style="width: ${pct}%"></div>
-        </div>
-        <div class="chart-value" style="color: ${isPos ? 'var(--green)' : 'var(--red)'}">
-          ${formatILS(s.endBalance)}
-        </div>
-      </div>`;
-  }).join('');
-}
- 
-// ══════════════════════════════════════════════════════
-//  RENDER FORECAST TABLE
-// ══════════════════════════════════════════════════════
- 
-function renderForecastTable() {
-  const events    = buildForecastEvents(state.horizon);
-  const container = document.getElementById('forecastTableContainer');
- 
-  if (events.length === 0) {
-    container.innerHTML = '<div style="padding:20px;color:var(--text-dim);font-size:0.82rem;text-align:center">אין אירועים</div>';
-    return;
-  }
- 
-  let running = state.balance;
-  let lastMonth = '';
-  let rows = `
-    <div class="forecast-row header">
-      <div>תאריך</div>
-      <div>פריט</div>
-      <div>סכום</div>
-      <div>יתרה</div>
-    </div>`;
- 
-  for (const ev of events) {
-    const mLabel = ev.date.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
-    if (mLabel !== lastMonth) {
-      rows += `<div class="forecast-row separator">${mLabel}</div>`;
-      lastMonth = mLabel;
-    }
- 
-    running += ev.amount;
-    const amtClass = ev.type === 'savings' ? 'amount-savings' :
-                     ev.amount > 0 ? 'amount-positive' : 'amount-negative';
-    const amtSign  = ev.amount > 0 ? '+' : '';
-    const tagClass = ev.type === 'savings' ? 'savings' :
-                     ev.amount > 0 ? 'income' : 'expense';
- 
-    const balColor = running < 0 ? 'var(--red)' : running < 3000 ? 'var(--yellow)' : 'var(--text-dim)';
- 
-    rows += `
-      <div class="forecast-row ${ev.type === 'savings' ? 'savings' : ev.amount > 0 ? 'income' : 'expense'}">
-        <div class="date-col">${formatDate(ev.date)}</div>
-        <div>
-          ${ev.name}
-          ${!ev.certain ? '<span class="tag conditional" style="margin-right:4px">צפוי</span>' : ''}
-        </div>
-        <div class="${amtClass}">${amtSign}${formatILS(ev.amount)}</div>
-        <div style="color:${balColor};font-size:0.8rem;font-family:var(--font-mono)">${formatILS(running)}</div>
-      </div>`;
-  }
- 
-  container.innerHTML = rows;
-}
- 
-// ══════════════════════════════════════════════════════
-//  RENDER OVERDRAFT COST
-// ══════════════════════════════════════════════════════
- 
-function renderOverdraftCost() {
-  const container = document.getElementById('overdraftCostContainer');
-  const bal = state.balance;
+  // balance color
+  const balCls = bal > 5000 ? 'pos' : bal >= 0 ? 'warn' : 'neg';
   const usedOD = bal < 0 ? Math.abs(bal) : 0;
+  const freeOD = OVERDRAFT_LIMIT - usedOD;
  
-  const dailyCost   = usedOD * OVERDRAFT_RATE / 365;
-  const monthlyCost = dailyCost * 30;
-  const yearlyCost  = usedOD * OVERDRAFT_RATE;
+  // days to salary
+  const salaryDate = new Date('2026-10-01');
+  const daysToSalary = daysBetween(today, salaryDate);
  
-  const rows = [
-    { label: 'ריבית שנתית (10%)',           value: formatILS(yearlyCost),  cls: usedOD > 0 ? 'red' : '' },
-    { label: 'עלות חודשית (בקירוב)',         value: formatILS(monthlyCost), cls: usedOD > 0 ? 'yellow' : '' },
-    { label: 'עלות יומית',                   value: formatILS(dailyCost),   cls: '' },
-    { label: 'מסגרת אוברדראפט מאושרת',      value: formatILS(OVERDRAFT_LIMIT), cls: '' },
-    { label: 'מסגרת בשימוש',                value: formatILS(usedOD),      cls: usedOD > 20000 ? 'red' : usedOD > 0 ? 'yellow' : '' },
-  ];
+  // remaining fixed this month
+  const yr = today.getFullYear(), mo = today.getMonth();
+  let remFixed = 0;
+  for (const e of FIXED_FOR_FORECAST) {
+    const d = new Date(yr, mo, e.day);
+    if (d >= today) {
+      if (e.until && d > new Date(e.until)) continue;
+      remFixed += e.amount;
+    }
+  }
  
-  container.innerHTML = rows.map(r => `
-    <div class="od-row">
-      <div class="od-label">${r.label}</div>
-      <div class="od-value ${r.cls}">${r.value}</div>
+  // projected end-of-month
+  const eom = new Date(yr, mo+1, 0);
+  const evtsMonth = buildForecastEvents(daysBetween(today, eom));
+  let projBal = bal;
+  evtsMonth.forEach(e => projBal += e.amount);
+ 
+  // alerts — scan 90 days
+  const evts90 = buildForecastEvents(90);
+  let running90 = bal, lowestBal = bal, lowestDate = today;
+  for (const ev of evts90) {
+    running90 += ev.amount;
+    if (running90 < lowestBal) { lowestBal = running90; lowestDate = ev.date; }
+  }
+ 
+  let alertHtml = '';
+  if (lowestBal < -20000) {
+    alertHtml = `<div class="alert-card warn"><div class="alert-icon">🚨</div><div class="alert-body"><h4>מינוס עמוק צפוי</h4><p>ב-${fmtDate(lowestDate)} היתרה עלולה להגיע ל-${fmtILS(lowestBal)}</p></div></div>`;
+  } else if (lowestBal < 0) {
+    alertHtml = `<div class="alert-card amber"><div class="alert-icon">⚠️</div><div class="alert-body"><h4>צפוי לרדת למינוס</h4><p>ב-${fmtDate(lowestDate)} יתרה צפויה: ${fmtILS(lowestBal)} — בתוך המסגרת</p></div></div>`;
+  } else {
+    alertHtml = `<div class="alert-card ok"><div class="alert-icon">✅</div><div class="alert-body"><h4>תחזית תקינה ל-90 יום</h4><p>יתרה מינימלית צפויה: ${fmtILS(lowestBal)}</p></div></div>`;
+  }
+ 
+  // upcoming income
+  const upcomingIncome = INCOME_EVENTS
+    .filter(e => new Date(e.date) >= today)
+    .sort((a,b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 6);
+ 
+  const incomeHtml = upcomingIncome.map(e => `
+    <div class="income-evt-row">
+      <div class="income-evt-name">${e.name} <span class="ctag ${e.certain?'ctag-income':'ctag-maybe'}">${e.certain?'ודאי':'צפוי'}</span></div>
+      <div class="income-evt-date">${fmtDate(new Date(e.date))}</div>
+      <div class="income-evt-amt">+${fmtILS(e.amount)}</div>
     </div>`).join('');
+ 
+  // forecast table
+  const evts = buildForecastEvents(bankState.horizon);
+  let runningFc = bal, lastMonth = '', fcRows = `
+    <div class="fc-row fc-header"><div>תאריך</div><div>פריט</div><div>סכום</div><div>יתרה</div></div>`;
+  for (const ev of evts) {
+    const mLabel = ev.date.toLocaleDateString('he-IL',{month:'long',year:'numeric'});
+    if (mLabel !== lastMonth) { fcRows += `<div class="fc-row fc-sep">${mLabel}</div>`; lastMonth = mLabel; }
+    runningFc += ev.amount;
+    const cls = ev.type === 'savings' ? 'fc-savings' : ev.amount > 0 ? 'fc-income' : 'fc-expense';
+    const amtCls = ev.type === 'savings' ? 'fc-sav' : ev.amount > 0 ? 'fc-pos' : 'fc-neg';
+    const sign = ev.amount > 0 ? '+' : '';
+    const balColor = runningFc < 0 ? 'color:var(--red)' : runningFc < 3000 ? 'color:var(--amber)' : 'color:var(--text3)';
+    fcRows += `<div class="fc-row ${cls}">
+      <div class="fc-date">${fmtDate(ev.date)}</div>
+      <div>${ev.name}${!ev.certain?` <span class="ctag ctag-maybe">צפוי</span>`:''}</div>
+      <div class="${amtCls}">${sign}${fmtILS(ev.amount)}</div>
+      <div class="fc-bal" style="${balColor}">${fmtILS(runningFc)}</div>
+    </div>`;
+  }
+ 
+  // overdraft cost
+  const dailyCost = usedOD * OVERDRAFT_RATE / 365;
+  const odHtml = [
+    { l: 'מסגרת אוברדראפט מאושרת', v: fmtILS(OVERDRAFT_LIMIT), cls: '' },
+    { l: 'בשימוש כרגע',             v: fmtILS(usedOD),          cls: usedOD > 20000 ? 'red' : usedOD > 0 ? 'amber' : '' },
+    { l: 'מסגרת פנויה',             v: fmtILS(freeOD),          cls: '' },
+    { l: 'ריבית שנתית (10%)',        v: fmtILS(usedOD * OVERDRAFT_RATE), cls: usedOD > 0 ? 'red' : '' },
+    { l: 'עלות חודשית (בקירוב)',     v: fmtILS(dailyCost * 30),  cls: usedOD > 0 ? 'amber' : '' },
+  ].map(r => `<div class="od-row"><div class="od-label">${r.l}</div><div class="od-val ${r.cls}">${r.v}</div></div>`).join('');
+ 
+  el.innerHTML = `
+    <!-- Balance card -->
+    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+      <span>יתרת עו"ש — בנק לאומי</span>
+      <button class="sync-btn" onclick="syncBalanceFromSheet()">↻ רענן מגיליון</button>
+    </div>
+    <div class="bank-card">
+      <div style="font-size:11px;color:var(--text3)">יתרה נוכחית</div>
+      <div class="bank-balance ${balCls}">${fmtILS(bal)}</div>
+      <div class="bank-meta">
+        <span>מינוס בשימוש: ${fmtILS(usedOD)}</span>
+        <span>מסגרת פנויה: ${fmtILS(freeOD)}</span>
+        ${bankState.lastSync ? `<span>סונכרן: ${bankState.lastSync}</span>` : ''}
+      </div>
+      <div class="bank-edit-row">
+        <label>עדכון ידני:</label>
+        <input type="number" id="manual-balance-input" placeholder="${Math.round(bal)}" step="1">
+        <button class="bank-update-btn" onclick="updateBankBalance()">עדכן</button>
+      </div>
+    </div>
+ 
+    <!-- 3 metrics -->
+    <div class="metrics" style="margin-bottom:14px">
+      ${mk('ימים עד משכורת', daysToSalary > 0 ? daysToSalary : '✓', '1 באוקטובר 2026', daysToSalary > 60 ? 'warn' : '')}
+      ${mk('קבועות נותרות', fmtILS(remFixed), 'עד סוף החודש', remFixed > bal ? 'bad' : 'warn')}
+      ${mk('יתרה סוף חודש', fmtILS(projBal), 'תחזית', projBal < 0 ? 'bad' : projBal < 3000 ? 'warn' : 'good')}
+    </div>
+ 
+    <!-- Alerts -->
+    ${alertHtml}
+ 
+    <!-- Upcoming income -->
+    <div class="section-label">📥 צפי הכנסות קרובות</div>
+    <div class="card">${incomeHtml || '<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">אין הכנסות צפויות ב-90 הימים הקרובים</div>'}</div>
+ 
+    <!-- Forecast -->
+    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+      <span>📊 תחזית תזרים</span>
+      <div class="forecast-toggle">
+        <button class="ftoggle ${bankState.horizon===30?'active':''}" onclick="setBankHorizon(30,this)">30י׳</button>
+        <button class="ftoggle ${bankState.horizon===60?'active':''}" onclick="setBankHorizon(60,this)">60י׳</button>
+        <button class="ftoggle ${bankState.horizon===90?'active':''}" onclick="setBankHorizon(90,this)">90י׳</button>
+      </div>
+    </div>
+    <div class="forecast-table">${fcRows}</div>
+ 
+    <!-- Overdraft cost -->
+    <div class="section-label">⚠️ עלות אוברדראפט</div>
+    <div class="card">${odHtml}</div>
+  `;
 }
  
-// ══════════════════════════════════════════════════════
-//  SYNC FROM GOOGLE SHEET
-// ══════════════════════════════════════════════════════
+function setBankHorizon(days, btn) {
+  bankState.horizon = days;
+  renderBank();
+}
  
-async function syncFromSheet() {
-  const btn = document.querySelector('.sync-btn');
-  btn.textContent = '...מסנכרן';
-  btn.disabled = true;
+function updateBankBalance() {
+  const val = parseFloat(document.getElementById('manual-balance-input').value);
+  if (isNaN(val)) { alert('נא להזין מספר'); return; }
+  bankState.balance = val;
+  bankState.lastSync = 'ידנית ' + new Date().toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'});
+  renderBank();
+}
  
+async function syncBalanceFromSheet() {
   try {
-    const res = await fetch(WEBHOOK_URL + '?action=getBankBalance', { method: 'GET' });
+    const res = await fetch(WEBHOOK + '?action=getBankBalance');
     const data = await res.json();
     if (data && data.balance !== undefined) {
-      state.balance = Number(data.balance);
-      state.lastSync = new Date().toLocaleTimeString('he-IL');
-      renderAll();
-    } else {
-      alert('לא נמצאה יתרת עו"ש בגיליון. ניתן לעדכן ידנית למטה.');
-    }
-  } catch (e) {
-    console.error(e);
-    alert('שגיאה בסנכרון. ניתן לעדכן ידנית.');
-  } finally {
-    btn.textContent = '↻ רענן מגיליון';
-    btn.disabled = false;
+      bankState.balance = Number(data.balance);
+      bankState.lastSync = new Date().toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'});
+      renderBank();
+    } else { alert('לא נמצאה יתרת עו"ש בגיליון. ניתן לעדכן ידנית.'); }
+  } catch(e) { alert('שגיאה בסנכרון. ניתן לעדכן ידנית.'); }
+}
+ 
+// ===== TABS =====
+function switchTab(tab) {
+  currentTab=tab;
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['expenses','income','fund','bank'][i]===tab));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if (tab==='income') loadIncome();
+  else if (tab==='fund') loadFund();
+  else if (tab==='bank') renderBank();
+}
+ 
+// ===== MODALS =====
+function openModal() {
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const today=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  if (currentTab==='expenses') {
+    document.getElementById('f-date').value=today;
+    document.getElementById('f-amount').value='';
+    document.getElementById('f-desc').value='';
+    document.getElementById('msg-expense').className='submit-msg';
+    document.getElementById('modal-expense').classList.add('open');
+  } else if (currentTab==='income') {
+    document.getElementById('i-start').value=today;
+    document.getElementById('i-end').value=today;
+    document.getElementById('i-amount').value='';
+    document.getElementById('i-name').value='';
+    document.getElementById('msg-income').className='submit-msg';
+    document.getElementById('modal-income').classList.add('open');
+  } else if (currentTab==='fund') {
+    document.getElementById('fu-date').value=today;
+    document.getElementById('fu-amount').value='';
+    document.getElementById('fu-desc').value='';
+    document.getElementById('msg-fund').className='submit-msg';
+    document.getElementById('modal-fund').classList.add('open');
   }
 }
  
-// ══════════════════════════════════════════════════════
-//  MANUAL UPDATE
-// ══════════════════════════════════════════════════════
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModalOutside(e,id) { if (e.target===document.getElementById(id)) closeModal(id); }
  
-function updateBalance() {
-  const val = parseFloat(document.getElementById('manualBalanceInput').value);
-  if (isNaN(val)) { alert('נא להזין מספר'); return; }
-  state.balance = val;
-  state.lastSync = 'ידנית — ' + new Date().toLocaleTimeString('he-IL');
-  document.getElementById('manualBalanceInput').value = '';
-  renderAll();
+async function sendToWebhook(payload, msgId, successCb) {
+  const btn=document.querySelector('#'+msgId.replace('msg-','modal-')+' .btn-primary');
+  const msgEl=document.getElementById(msgId);
+  if (btn) { btn.textContent='שולח...'; btn.disabled=true; }
+  try {
+    await fetch(WEBHOOK,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    msgEl.textContent='✓ נשמר בגיליון';
+    msgEl.className='submit-msg ok';
+    if (btn) { btn.textContent='הוסף'; btn.disabled=false; }
+    setTimeout(()=>{ successCb && successCb(); },1500);
+  } catch(e) {
+    msgEl.textContent='שגיאה בשליחה — נסה שוב';
+    msgEl.className='submit-msg err';
+    if (btn) { btn.textContent='הוסף'; btn.disabled=false; }
+  }
 }
  
-// ══════════════════════════════════════════════════════
-//  HORIZON TOGGLE
-// ══════════════════════════════════════════════════════
- 
-function setHorizon(days, btn) {
-  state.horizon = days;
-  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderChart();
-  renderForecastTable();
+async function submitExpense() {
+  const amount=parseFloat(document.getElementById('f-amount').value);
+  if (!amount||amount<=0) { const m=document.getElementById('msg-expense'); m.textContent='יש להזין סכום'; m.className='submit-msg err'; return; }
+  const dateVal=document.getElementById('f-date').value;
+  const [y,mo,d]=dateVal.split('-');
+  const dateStr=d+'/'+mo+'/'+String(y).slice(2);
+  await sendToWebhook({category:document.getElementById('f-cat').value,description:document.getElementById('f-desc').value,amount,currency:document.getElementById('f-currency').value,date:dateStr},'msg-expense',()=>{
+    delete cache[MONTHS[currentMonthIdx]];
+    closeModal('modal-expense');
+    loadExpenses(MONTHS[currentMonthIdx],currentMonthIdx);
+  });
 }
  
-// ══════════════════════════════════════════════════════
-//  RENDER ALL
-// ══════════════════════════════════════════════════════
- 
-function renderAll() {
-  renderBalance();
-  renderMetrics();
-  renderAlerts();
-  renderIncomeForecast();
-  renderChart();
-  renderForecastTable();
-  renderOverdraftCost();
-  document.getElementById('lastUpdatedText').textContent =
-    'עודכן: ' + new Date().toLocaleString('he-IL');
+async function submitIncome() {
+  const amount=parseFloat(document.getElementById('i-amount').value);
+  if (!amount||amount<=0) { const m=document.getElementById('msg-income'); m.textContent='יש להזין סכום'; m.className='submit-msg err'; return; }
+  if (!document.getElementById('i-name').value.trim()) { const m=document.getElementById('msg-income'); m.textContent='יש להזין שם פרויקט'; m.className='submit-msg err'; return; }
+  await sendToWebhook({type:'income',projectName:document.getElementById('i-name').value,workType:document.getElementById('i-type').value,amount,currency:document.getElementById('i-currency').value,startDate:document.getElementById('i-start').value,endDate:document.getElementById('i-end').value,invoice:document.getElementById('i-invoice').value,paid:document.getElementById('i-paid').value},'msg-income',()=>{
+    delete cache['הכנסות ופרויקטים'];
+    closeModal('modal-income');
+    loadIncome();
+  });
 }
  
-// Init
-renderAll();
+async function submitFund() {
+  const amount=parseFloat(document.getElementById('fu-amount').value);
+  if (!amount||amount<=0) { const m=document.getElementById('msg-fund'); m.textContent='יש להזין סכום'; m.className='submit-msg err'; return; }
+  await sendToWebhook({type:'fund',description:document.getElementById('fu-desc').value,amount,currency:document.getElementById('fu-currency').value,date:document.getElementById('fu-date').value},'msg-fund',()=>{
+    delete cache['קופת חריגות'];
+    closeModal('modal-fund');
+    loadFund();
+  });
+}
+ 
+// ===== INIT =====
+const sel=document.getElementById('month-selector');
+MONTHS.forEach((m,i)=>{
+  const btn=document.createElement('button');
+  btn.className='month-btn'; btn.dataset.idx=i; btn.textContent=m;
+  btn.onclick=()=>loadExpenses(m,i); sel.appendChild(btn);
+});
+const now=new Date();
+const defIdx=now.getFullYear()===2026?Math.max(0,Math.min(7,now.getMonth()-4)):Math.max(8,Math.min(11,now.getMonth()+8));
+loadExpenses(MONTHS[defIdx],defIdx);
 </script>
 </body>
 </html>
+ 
